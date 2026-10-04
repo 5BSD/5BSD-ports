@@ -1,0 +1,44 @@
+5BSD Ports
+==========
+Canonical source: https://github.com/klheard/5BSD-ports.git
+Install the source tree at /usr/ports. Build native packages against the same
+5BSD base as the destination system. Do not disable the pkg OSVERSION check
+to install packages built for a newer upstream base.
+
+Binary packages and Git sources are different services. The base repository
+configuration uses 5BSD-ports at file:///usr/5bsd-packages/ports. Publish the
+native package catalogue there with pkg repo. Remote deployments must supply
+a real package-server URL and signing policy in
+/usr/local/etc/pkg/repos/5BSD-ports.conf. No public catalogue is claimed here.
+Base packages remain in /usr/obj/usr/src/repo; matching hardware packages
+remain in /usr/5bsd-packages/hardware.
+
+Native toolkit
+--------------
+lang/dart builds the native 5BSD Dart SDK from source, using a checksummed
+native bootstrap SDK. The port is amd64-only until other architectures are
+validated. It does not use a Linux runtime. Normal ports fetch/checksum,
+configure, build, stage, package, test and plist checks are supported.
+
+Validation performed: source build on 5BSD, stage QA and plist checks;
+installation through a 5BSD test catalogue in an isolated 5BSD VM; native
+runtime/isolate/file operations and ahead-of-time compilation plus execution.
+VM validation also built/packaged print/indexinfo from this tree, checked all
+Dart distfiles through ports, and reinstalled Dart from the canonical local
+5BSD-ports catalogue using the new base configuration.
+This is not a claim of a clean-room VM rebuild of the entire SDK.
+
+Release preparation is incomplete: toolkit source/bootstrap archives are
+staged locally, but the proposed toolkit-20261004 GitHub release has not been
+published. Public fetch will not work until those exact checksummed archives
+are uploaded. Do not publish a different archive under the same filename.
+The source exporter records the patched working-tree provenance; this is a
+development snapshot, not an assertion of an unmodified upstream checkout.
+
+Planned companion origins are x11-toolkits/flutter-engine and
+sysutils/5bsd-instruments. They are not available ports yet. Instruments must
+ship a capability bundle with system.trace.client and system.network.pf.read,
+and must run under the desktop user's identity. The existing development
+bundle records a specific user and display session; it cannot be published
+as a generic package unchanged. Packaging must resolve session registration
+and bundle upgrade/removal before it is considered ready.

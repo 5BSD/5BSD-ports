@@ -1,0 +1,6 @@
+Dart is a programming language for building applications with a native virtual
+machine, ahead-of-time compiler, analyzer, and package manager.
+
+This port builds the 5BSD SDK from pinned sources using a native 5BSD bootstrap
+SDK. Linux compatibility is not required. The Flutter engine and desktop
+applications are separate packages.

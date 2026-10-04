@@ -1,7 +1,9 @@
-This is the FreeBSD Ports Collection.  For an easy to use
-WEB-based interface to it, please see:
+This is the 5BSD Ports Collection, derived from the upstream ports framework.
+The canonical source repository is:
 
-	https://ports.FreeBSD.org
+	https://github.com/klheard/5BSD-ports
+
+See README.5BSD for native toolkit status and repository integration.
 
 For general information on the Ports Collection, please see the
 FreeBSD Handbook ports section which is available from:
@@ -25,7 +27,7 @@ make search also supports wildcards, such as:
 
 	make search name="gtk*"
 
-For information about contributing to FreeBSD ports, please see the Porter's
+For information about the inherited ports framework, please see the Porter's
 Handbook, available at:
 
 	https://docs.freebsd.org/en/books/porters-handbook/

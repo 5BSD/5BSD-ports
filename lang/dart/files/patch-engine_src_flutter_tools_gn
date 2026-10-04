@@ -1,0 +1,22 @@
+--- engine/src/flutter/tools/gn.orig
++++ engine/src/flutter/tools/gn
+@@ -356,6 +356,19 @@
+ 
+ 
+ def setup_git_versions():
++  # Ports source archives carry pinned revisions instead of Git metadata.
++  versions = os.path.join(SRC_ROOT, '..', '..', 'docs', '5bsd', 'dist-versions.json')
++  if os.path.isfile(versions):
++    import json
++    import re
++    with open(versions) as source:
++      values = json.load(source)
++    expected = {'engine_version', 'content_hash', 'skia_version', 'dart_version'}
++    if set(values) != expected or any(
++        not isinstance(value, str) or not re.fullmatch(r'[0-9a-f]{40}', value)
++        for value in values.values()):
++      raise ValueError('Invalid source distribution revisions')
++    return values
+   revision_args = {}
+ 
+   engine_path = os.path.join(SRC_ROOT, 'flutter')
