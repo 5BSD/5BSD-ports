@@ -1,0 +1,7 @@
+TIMESTAMP = 1791146446
+SHA256 (5bsd-toolkit/5bsd-flutter-eb529d2bebb5.tar.xz) = 1a4310d541709e78a2a885339cbf621ddd3ed30eb3097f0a9955cd4ad2dd3ea5
+SIZE (5bsd-toolkit/5bsd-flutter-eb529d2bebb5.tar.xz) = 507240640
+SHA256 (5bsd-toolkit/dart-bootstrap-3.13.5-5bsd-amd64.tar.xz) = 234163dec89badc3d94ff657c1fc2dbba1ac8ae375551a6a957f8ef078d18c1b
+SIZE (5bsd-toolkit/dart-bootstrap-3.13.5-5bsd-amd64.tar.xz) = 162947532
+SHA256 (5bsd-toolkit/flutter-devtools-12d595649f189f1896722623f72599077f476848_GH0.tar.gz) = 0e48f113e391da2724592e163ff79f9dbdac4b513728e764ef0728008488aed3
+SIZE (5bsd-toolkit/flutter-devtools-12d595649f189f1896722623f72599077f476848_GH0.tar.gz) = 84070153

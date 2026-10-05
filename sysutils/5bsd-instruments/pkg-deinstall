@@ -1,0 +1,4 @@
+#!/bin/sh
+if [ "$2" = DEINSTALL ] && [ "${PKG_UPGRADE:-false}" != true ]; then
+    "${PKG_PREFIX}/sbin/5bsd-instruments-register" unregister
+fi

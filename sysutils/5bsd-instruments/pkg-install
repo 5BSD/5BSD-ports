@@ -1,0 +1,4 @@
+#!/bin/sh
+if [ "$2" = POST-INSTALL ]; then
+    "${PKG_PREFIX}/sbin/5bsd-instruments-register" refresh
+fi

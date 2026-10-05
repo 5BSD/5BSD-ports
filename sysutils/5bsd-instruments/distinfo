@@ -1,0 +1,17 @@
+TIMESTAMP = 1791168674
+SHA256 (5bsd-toolkit/5bsd-flutter-eb529d2bebb5.tar.xz) = 1a4310d541709e78a2a885339cbf621ddd3ed30eb3097f0a9955cd4ad2dd3ea5
+SIZE (5bsd-toolkit/5bsd-flutter-eb529d2bebb5.tar.xz) = 507240640
+SHA256 (5bsd-toolkit/5bsd-instruments-system-sources-20261005.tar.xz) = dc51e91e38155c355a2d1eee0322072d811d50d1ab60603901c4390731b38816
+SIZE (5bsd-toolkit/5bsd-instruments-system-sources-20261005.tar.xz) = 56680
+SHA256 (5bsd-toolkit/fonts.zip) = e56fa8e9bb4589fde964be3de451f3e5b251e4a1eafb1dc98d94add034dd5a86
+SIZE (5bsd-toolkit/fonts.zip) = 2306678
+SHA256 (5bsd-toolkit/characters-1.4.1.tar.gz) = faf38497bda5ead2a8c7615f4f7939df04333478bf32e4173fcb06d428b5716b
+SIZE (5bsd-toolkit/characters-1.4.1.tar.gz) = 528692
+SHA256 (5bsd-toolkit/collection-1.19.1.tar.gz) = 2f5709ae4d3d59dd8f7cd309b4e023046b57d8a6c82130785d2b0e5868084e76
+SIZE (5bsd-toolkit/collection-1.19.1.tar.gz) = 77897
+SHA256 (5bsd-toolkit/material_color_utilities-0.13.0.tar.gz) = 9c337007e82b1889149c82ed242ed1cb24a66044e30979c44912381e9be4c48b
+SIZE (5bsd-toolkit/material_color_utilities-0.13.0.tar.gz) = 2115434
+SHA256 (5bsd-toolkit/meta-1.18.3.tar.gz) = c82594181e3312f3d0695fc95aaaf7758d75b8d4ae2bbecf223b9fd5109a059d
+SIZE (5bsd-toolkit/meta-1.18.3.tar.gz) = 16874
+SHA256 (5bsd-toolkit/vector_math-2.4.0.tar.gz) = 1d774bbdf6b72a0b12122fc1560c9c2d2a67db5a4a4cc2bd8a5c990ab20e3188
+SIZE (5bsd-toolkit/vector_math-2.4.0.tar.gz) = 177124

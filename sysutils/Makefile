@@ -3,6 +3,7 @@
     SUBDIR += 3dm
     SUBDIR += 3mux
     SUBDIR += 44bsd-more
+    SUBDIR += 5bsd-instruments
     SUBDIR += 915resolution
     SUBDIR += LPRng
     SUBDIR += LPRngTool

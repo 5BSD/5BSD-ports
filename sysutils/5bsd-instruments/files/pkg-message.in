@@ -1,0 +1,17 @@
+[
+{ type: install
+  message: <<EOM
+5BSD Instruments is installed as an account-independent capability bundle.
+From a root administrator login with switchboard discovery, register the
+intended desktop account, using that account's actual runtime directory:
+
+  %%PREFIX%%/sbin/5bsd-instruments-register register --user USER \
+    --runtime-dir /var/run/user/UID --wayland-display wayland-0
+
+For X11, use --display :0 and optionally --xauthority /home/USER/.Xauthority.
+Then launch 5bsd-instruments from that user's desktop session.
+The current System bundle supports one registered desktop account per host.
+The base must contain the system.Network.PF endpoint and working BSDTrace.
+EOM
+}
+]

@@ -1,0 +1,5 @@
+Native 5BSD Flutter GTK engine with desktop embedding headers, the matching
+Flutter platform kernel files, and the native AOT snapshot generator.
+
+This is the engine development/runtime package, not the Flutter CLI SDK.
+It is built with the same pinned Dart revision as lang/dart.

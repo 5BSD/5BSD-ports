@@ -9,6 +9,7 @@
     SUBDIR += copperspice
     SUBDIR += ctk
     SUBDIR += fltk
+    SUBDIR += flutter-engine
     SUBDIR += fox16
     SUBDIR += fox17
     SUBDIR += fxscintilla

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=5BSD Instruments
+Comment=System instruments and BSDTrace recordings
+Exec=5bsd-instruments
+Icon=org.fivebsd.Instruments
+Terminal=false
+Categories=System;Monitor;
+StartupNotify=false
+StartupWMClass=org.fivebsd.Instruments

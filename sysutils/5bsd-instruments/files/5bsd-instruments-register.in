@@ -1,0 +1,235 @@
+#!%%PYTHON_CMD%%
+"""Register the packaged 5BSD Instruments bundle for one desktop account."""
+import argparse
+import grp
+import fcntl
+import json
+import os
+from pathlib import Path
+import pwd
+import re
+import shutil
+import stat
+import subprocess
+import tempfile
+
+PREFIX = Path('%%PREFIX%%')
+TEMPLATE = PREFIX / 'libexec/5bsd-instruments/Instruments.cap'
+LABEL = 'org.5bsd.Instruments/gui'
+STATE = Path('/var/db/5bsd-instruments/registration.json')
+POLICY = Path('/Capabilities/System/Trace.cap/Units/bsdtrace.unit/Config/bsdtrace.allow')
+SYSTEM = Path('/Capabilities/System')
+
+
+def command(*args):
+    subprocess.run(args, check=True)
+
+
+def atomic(path, contents, mode=0o600):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.is_symlink():
+        raise RuntimeError(f'Refusing symlink: {path}')
+    fd, name = tempfile.mkstemp(prefix='.' + path.name + '-', dir=path.parent)
+    try:
+        with os.fdopen(fd, 'w') as stream:
+            stream.write(contents)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.chmod(name, mode)
+        os.replace(name, path)
+    finally:
+        if os.path.exists(name):
+            os.unlink(name)
+
+
+def read_state(path):
+    if not path.exists():
+        return None
+    if path.is_symlink() or path.stat().st_mode & 0o022:
+        raise RuntimeError('Unsafe registration state')
+    return json.loads(path.read_text())
+
+
+def checked_bundle(system, name):
+    if not re.fullmatch(r'org\.5bsd\.Instruments@[0-9]{20}\.cap', name):
+        raise RuntimeError('Invalid recorded bundle name')
+    path = system / name
+    if path.is_symlink():
+        raise RuntimeError('Refusing symlinked bundle')
+    if path.exists():
+        metadata = json.loads((path / 'Bundle.ucl').read_text())
+        if metadata.get('bundle_id') != 'org.5bsd.Instruments':
+            raise RuntimeError('Recorded bundle identity mismatch')
+    return path
+
+
+def stop(offline):
+    if offline:
+        return
+    result = subprocess.run(['/usr/sbin/switchboardctl', 'stop', LABEL],
+                            capture_output=True, text=True)
+    if result.returncode and 'not found' not in result.stderr:
+        raise RuntimeError('Cannot stop Instruments; use an administrator login with '
+                           'switchboard discovery. ' + result.stderr.strip())
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('action', choices=['register', 'refresh', 'unregister'])
+    parser.add_argument('--user')
+    parser.add_argument('--runtime-dir', type=Path)
+    parser.add_argument('--wayland-display')
+    parser.add_argument('--display')
+    parser.add_argument('--xauthority', type=Path)
+    parser.add_argument('--offline-root', type=Path,
+                        help='Stage/validate in a disposable filesystem; never contact live switchboard')
+    args = parser.parse_args()
+    offline = args.offline_root is not None
+    if not offline and os.geteuid() != 0:
+        parser.error('Use a root administrator shell to register a System capability bundle')
+    root = args.offline_root.resolve() if offline else Path('/')
+    if offline and root == Path('/'):
+        parser.error('Offline root must not be /')
+    system, policy, state = (root / str(p).lstrip('/') for p in (SYSTEM, POLICY, STATE))
+    # Every writable ancestor must be a real directory owned by the caller,
+    # preventing policy writes through symlinks or another user's directory.
+    for path in (system, policy.parent, state.parent):
+        for parent in [path, *path.parents]:
+            if parent == root.parent or not parent.is_relative_to(root):
+                break
+            if parent.is_symlink():
+                raise RuntimeError(f'Refusing symlinked parent: {parent}')
+            if parent.exists() and (parent.stat().st_uid != os.geteuid() or
+                                    parent.stat().st_mode & 0o022):
+                raise RuntimeError(f'Unsafe policy directory: {parent}')
+            if parent == root:
+                break
+    state.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    lock = os.open(state.parent / '.registration.lock', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    info = os.fstat(lock)
+    if info.st_uid != os.geteuid() or info.st_mode & 0o022:
+        raise RuntimeError('Unsafe registration lock')
+    fcntl.flock(lock, fcntl.LOCK_EX)
+    if policy.is_symlink():
+        raise RuntimeError("Refusing symlinked trace policy")
+    previous = read_state(state)
+    if args.action == 'refresh' and previous is None:
+        print('Register the desktop account with 5bsd-instruments-register register.')
+        return
+    if args.action == 'unregister':
+        if previous is None:
+            print('No package-managed registration exists.')
+            return
+        bundle = checked_bundle(system, previous['bundle'])
+        stop(offline)
+        # Remove only our exact grant, and only if this tool originally added it.
+        if previous['added_trace_grant'] and policy.exists():
+            lines = policy.read_text().splitlines(True)
+            content = ''.join(line for line in lines if line.strip() != LABEL)
+            with tempfile.TemporaryDirectory() as scratch:
+                candidate = Path(scratch) / 'allow'
+                candidate.write_text(content)
+                command('/usr/sbin/tracectl', 'configtest', str(candidate))
+            atomic(policy, content, 0o644)
+        if bundle.exists():
+            shutil.rmtree(bundle)
+        state.unlink()
+        if not offline:
+            command('/usr/sbin/switchboardctl', 'reload')
+            if previous['added_trace_grant']:
+                command('/usr/sbin/switchboardctl', 'restart', 'system.Trace/bsdtrace')
+        print('Removed package-managed Instruments registration.')
+        return
+    if args.action == 'refresh':
+        config = previous['config']
+    else:
+        if not args.user or not args.runtime_dir or not (args.wayland_display or args.display):
+            parser.error('register requires --user, --runtime-dir and --wayland-display or --display')
+        config = dict(user=args.user, runtime_dir=str(args.runtime_dir),
+                      wayland_display=args.wayland_display, display=args.display,
+                      xauthority=str(args.xauthority) if args.xauthority else None)
+    account = pwd.getpwnam(config['user'])
+    if account.pw_uid == 0:
+        parser.error('The GUI must run as a non-root desktop user')
+    runtime = Path(config['runtime_dir'])
+    if not runtime.is_absolute():
+        parser.error('Runtime directory must be absolute')
+    if runtime.exists() and (runtime.is_symlink() or not runtime.is_dir() or
+                            runtime.stat().st_uid != account.pw_uid or runtime.stat().st_mode & 0o022):
+        parser.error('Runtime directory must be a private directory owned by the desktop user')
+    if config['xauthority'] and not Path(config['xauthority']).is_absolute():
+        parser.error('Xauthority must be an absolute path')
+    if config['wayland_display'] and not re.fullmatch(r'[A-Za-z0-9_.-]+', config['wayland_display']):
+        parser.error('Wayland display must be a socket basename')
+    if config['display'] and not re.fullmatch(r':[0-9]+(?:\.[0-9]+)?', config['display']):
+        parser.error('X display must be a local display such as :0')
+    if previous and previous['config']['user'] != config['user']:
+        parser.error('Unregister the previous desktop account before selecting another account')
+    environment = dict(HOME=account.pw_dir, USER=account.pw_name,
+                       PATH='/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin',
+                       XDG_RUNTIME_DIR=str(runtime))
+    for source, target in [('wayland_display', 'WAYLAND_DISPLAY'), ('display', 'DISPLAY'),
+                           ('xauthority', 'XAUTHORITY')]:
+        if config[source]:
+            environment[target] = config[source]
+    metadata = json.loads((TEMPLATE / 'Bundle.ucl').read_text())
+    sequence = int(metadata['sequence'])
+    name = f'org.5bsd.Instruments@{sequence:020d}.cap'
+    destination = checked_bundle(system, name)
+    if destination.exists():
+        if previous and previous['bundle'] == name and previous['config'] == config:
+            if not offline:
+                command('/usr/sbin/switchboardctl', 'reload')
+                if previous.get('trace_policy_pending'):
+                    command('/usr/sbin/switchboardctl', 'restart', 'system.Trace/bsdtrace')
+                    previous['trace_policy_pending'] = False
+                    atomic(state, json.dumps(previous, indent=2) + '\n')
+            print(f'Already registered: {destination}')
+            return
+        parser.error('This immutable bundle sequence already exists; unregister it before reconfiguring')
+    system.mkdir(parents=True, exist_ok=True)
+    if policy.is_symlink():
+        raise RuntimeError('Refusing symlinked trace policy')
+    original = policy.read_text() if policy.exists() else ''
+    command('/usr/sbin/tracectl', 'configtest', str(policy)) if policy.exists() else None
+    present = LABEL in {line.split('#', 1)[0].strip() for line in original.splitlines()}
+    content = original if present else original.rstrip('\n') + '\n' + LABEL + '\n'
+    with tempfile.TemporaryDirectory(prefix='.instruments-', dir=system) as scratch:
+        candidate = Path(scratch) / 'Instruments.cap'
+        shutil.copytree(TEMPLATE, candidate, symlinks=True)
+        if any(path.is_symlink() for path in candidate.rglob('*')):
+            raise RuntimeError('Bundle template contains a symlink')
+        manifest_path = candidate / 'Units/gui.unit/Unit.ucl'
+        manifest = json.loads(manifest_path.read_text())
+        manifest.update(user=account.pw_name, group=grp.getgrgid(account.pw_gid).gr_name,
+                        environment=environment)
+        manifest_path.write_text(json.dumps(manifest, indent=2) + '\n')
+        command('/usr/sbin/switchboardctl', 'verify', str(candidate))
+        candidate_policy = Path(scratch) / 'allow'
+        candidate_policy.write_text(content)
+        command('/usr/sbin/tracectl', 'configtest', str(candidate_policy))
+        stop(offline)
+        atomic(policy, content, 0o644)
+        os.rename(candidate, destination)
+    record = dict(bundle=name, config=config,
+                  trace_policy_pending=(content != original or bool(previous and previous.get('trace_policy_pending'))),
+                  added_trace_grant=previous['added_trace_grant'] if previous else not present)
+    atomic(state, json.dumps(record, indent=2) + '\n')
+    if not offline:
+        command('/usr/sbin/switchboardctl', 'reload')
+        if record['trace_policy_pending']:
+            command('/usr/sbin/switchboardctl', 'restart', 'system.Trace/bsdtrace')
+            record['trace_policy_pending'] = False
+            atomic(state, json.dumps(record, indent=2) + '\n')
+    if previous and previous['bundle'] != name:
+        old = checked_bundle(system, previous['bundle'])
+        if old.exists():
+            shutil.rmtree(old)
+    print(f'Registered {destination} for {account.pw_name}. Launch 5bsd-instruments from that desktop.')
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (OSError, ValueError, KeyError, RuntimeError, subprocess.CalledProcessError) as error:
+        raise SystemExit(str(error))

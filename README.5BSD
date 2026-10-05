@@ -35,10 +35,28 @@ are uploaded. Do not publish a different archive under the same filename.
 The source exporter records the patched working-tree provenance; this is a
 development snapshot, not an assertion of an unmodified upstream checkout.
 
-Planned companion origins are x11-toolkits/flutter-engine and
-sysutils/5bsd-instruments. They are not available ports yet. Instruments must
-ship a capability bundle with system.trace.client and system.network.pf.read,
-and must run under the desktop user's identity. The existing development
-bundle records a specific user and display session; it cannot be published
-as a generic package unchanged. Packaging must resolve session registration
-and bundle upgrade/removal before it is considered ready.
+The companion origins are x11-toolkits/flutter-engine and
+sysutils/5bsd-instruments. The engine builds the 5BSD GTK library, matching
+gen_snapshot tool, public headers and patched Dart platform SDK from the same
+source snapshot as the Dart port. Instruments builds an AOT application offline
+from pinned Dart packages and packages its audited DTrace scripts in an
+account-independent capability bundle. The port verifies the bundle, tests
+the registration lifecycle in a disposable filesystem, and includes package
+hooks to refresh an existing registration on upgrade or remove it on uninstall.
+Both companion ports pass local package creation, stage QA and packing-list
+checks. The packaged GUI passes Wayland and X11 application self-tests with
+the staged engine; these tests cover rendering, input, clipboard,
+accessibility, native Dart operations, and PF table parsing and sorting.
+
+After installing Instruments, a root administrator must register one desktop
+account with that account's actual display session using
+5bsd-instruments-register. The helper writes the immutable bundle into the
+System capability plane, grants the exact BSDTrace client label if needed,
+and reloads switchboard. See the package message for the full command. The
+base must include the system.Network.PF endpoint and working BSDTrace; the GUI
+package does not replace either system service. The current bundle supports
+one registered desktop account per host.
+
+The engine and Instruments source archives are still staged locally pending
+publication of the exact checksummed toolkit-20261004 release assets. A fresh
+remote ports fetch and a full GUI install on a VM have not yet been validated.

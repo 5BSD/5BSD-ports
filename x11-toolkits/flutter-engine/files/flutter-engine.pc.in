@@ -1,0 +1,12 @@
+prefix=%%PREFIX%%
+libdir=${prefix}/lib
+includedir=${prefix}/include
+engine_data=${prefix}/share/flutter-engine
+gen_snapshot=${prefix}/libexec/flutter-engine/gen_snapshot
+
+Name: 5BSD Flutter engine
+Description: Native 5BSD GTK Flutter embedding
+Version: %%VERSION%%
+Requires: gtk+-3.0
+Libs: -L${libdir} -lflutter_5bsd_gtk
+Cflags: -I${includedir}

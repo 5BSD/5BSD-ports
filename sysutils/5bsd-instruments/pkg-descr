@@ -1,0 +1,6 @@
+5BSD Instruments provides separate GUI instruments for PF flows and system
+tracing. It uses the system BSDTrace and Network capability providers.
+
+The package contains an account-independent capability bundle template.
+An administrator registers it for a non-root desktop account after install;
+no developer account or display environment is embedded in the package.
