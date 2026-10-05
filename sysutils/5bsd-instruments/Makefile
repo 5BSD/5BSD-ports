@@ -1,5 +1,5 @@
 PORTNAME=	5bsd-instruments
-DISTVERSION=	0.3.8
+DISTVERSION=	0.3.9
 CATEGORIES=	sysutils
 MASTER_SITES=	https://github.com/5BSD/5BSD-ports/releases/download/toolkit-20261004/:toolkit \
 		https://pub.dev/api/archives/:pub \
@@ -30,7 +30,7 @@ USE_GNOME=	gtk30
 # Installed binaries always use LOCALBASE for their final engine rpath.
 DART_CMD?=	${LOCALBASE}/bin/dart
 ENGINE_PREFIX?=	${LOCALBASE}
-_BUNDLE_SEQUENCE=202610050001
+_BUNDLE_SEQUENCE=202610050002
 _PUB_PACKAGES=	characters-1.4.1 collection-1.19.1 material_color_utilities-0.13.0 \
 		meta-1.18.3 vector_math-2.4.0
 .for package in ${_PUB_PACKAGES}
