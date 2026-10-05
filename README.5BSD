@@ -1,6 +1,6 @@
 5BSD Ports
 ==========
-Canonical source: https://github.com/klheard/5BSD-ports.git
+Canonical source: https://github.com/5BSD/5BSD-ports.git
 Install the source tree at /usr/ports. Build native packages against the same
 5BSD base as the destination system. Do not disable the pkg OSVERSION check
 to install packages built for a newer upstream base.

@@ -1,7 +1,7 @@
 PORTNAME=	dart
 DISTVERSION=	3.13.5
 CATEGORIES=	lang
-MASTER_SITES=	https://github.com/klheard/5BSD-ports/releases/download/toolkit-20261004/
+MASTER_SITES=	https://github.com/5BSD/5BSD-ports/releases/download/toolkit-20261004/
 DISTNAME=	5bsd-flutter-eb529d2bebb5
 DISTFILES=	${DISTNAME}${EXTRACT_SUFX} \
 		dart-bootstrap-${DISTVERSION}-5bsd-amd64${EXTRACT_SUFX}
