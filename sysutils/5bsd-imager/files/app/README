@@ -1,0 +1,172 @@
+5BSD Imager 0.2
+==============
+
+A native Dart/Flutter USB image writer, using the 5BSD toolkit ports.
+The interface uses macos_ui 2.2.2: a light macOS-style window, traffic-light
+window buttons, push buttons, checkboxes, progress bars, and confirmation
+sheets. Red and gold accents retain the 5BSD identity. Cupertino icons are
+bundled; text uses available system fonts rather than redistributing Apple
+fonts. Keyboard adapters add activation and visible focus to buttons.
+macOS-only native plugins are not invoked on 5BSD; GTK handles the window
+and file picker, and polkit handles authentication. The footer reads
+"Built for 5BSD ❤️ · #livefreeordie". The window has a custom draggable title bar. Source is
+maintained here in the port. The GTK runner registers a hidden custom titlebar
+before window realization so GTK 3 requests client-side decorations on KWin;
+set_decorated(FALSE) alone does not negotiate this on Wayland. Only Flutter
+draws the visible header, and the original GDK events drive window movement
+and resizing. Chrome events are intercepted on FlView's child event box,
+before Flutter consumes button presses; a handler on FlView itself never
+receives those consumed events. Wayland traces confirmed KWin accepts client
+mode (1).
+The runner handles delete-event before Flutter's GApplication exit hook:
+idle windows are destroyed to stop gtk_main, while busy writes refuse close.
+
+Supported workflow
+------------------
+Choose an .img, .iso, .raw, or XZ-compressed disk image; select one or more
+whole drives; confirm erasure; authorize through the desktop polkit agent;
+write and verify. Drive discovery reads public GEOM metadata without asking
+for a password. Writing requests authorization for each target; prompts are
+serialized while authorized writes run concurrently. Authorization is not
+retained. No operator/raw-disk group or relaxed /dev permissions are needed.
+
+Capacity is shown in decimal GB and binary GiB. Partitions can be expanded
+for context but cannot be selected individually. Protected disks are behind
+an expandable row. The list updates automatically every three seconds when
+idle. Confirmation identifies the image, all selected drives, their sizes,
+serial numbers and partition counts. Write and verification progress are
+shown separately, with per-drive status for a batch.
+
+XZ is recognized by signature, including renamed images. The base-system
+/usr/bin/xz reads its expanded size and streams decompressed bytes as the
+normal user. No temporary expanded image is required. Capacity checks use
+the expanded size; decoder failure, checksum failure, truncation or changed
+size prevents success. XZ environment overrides are cleared and decoder
+memory is limited to 512 MiB per target. Cancellation stops each decoder and
+writer. Tar archives (.tar.xz/.txz) are not disk images and are rejected.
+
+Only whole da disks attached through umass are eligible. Mounted disks,
+active pools, swap, and other open GEOM consumers are refused. Unmount drives
+yourself before scanning again. Internal SATA/NVMe/SCSI disks, SD controllers,
+other compression formats, automatic unmounting, and downloading are not
+supported. An ISO must already support booting from USB;
+the app does not convert arbitrary optical-disc ISOs into hybrid images.
+The kernel's GEOM attachment uses the CAM name umass-simN (for example,
+umass-sim0), which differs from the USB device name umassN. Both recognized
+forms require an exact numeric unit suffix; this is covered by regression tests.
+
+Read-back verification covers the image bytes and zero padding through the
+last sector. It does not erase or verify unused space after the image. Writing
+an image is not a secure erase operation. Cancellation, disconnects, or errors
+can leave an incomplete drive. Every completed write must pass SHA-256 read-back verification. Cache flushing
+is attempted first. If GEOM explicitly reports EOPNOTSUPP, verification still
+runs and the UI shows a cache-flush notice; persistence after unplugging has
+not been confirmed. The first EINVAL is retried once because CAM can learn
+that SYNCHRONIZE CACHE is unsupported and then report EOPNOTSUPP. Other sync
+or flush errors fail the operation. No kernel flush policy is changed.
+
+Privilege boundary
+------------------
+The GUI runs as the desktop user. It opens the image and streams bytes to a
+fixed installed helper through pkexec; no image pathname or shell command is
+passed to root. Passwords are handled by the desktop's authentication agent,
+never collected by Dart, stored, or passed in argv or environment variables.
+The helper accepts only --list and --write disk identity byte-count.
+
+Before the first write, the helper checks the GEOM provider identity, serial
+when available, geometry, USB attachment, open-consumer counts, and kernel
+write protections. It checks again against the held device descriptor. It
+rejects kern.geom.debugflags foot-shooting mode. This is not an O_EXCL claim:
+GEOM does not implement O_EXCL on these device nodes. GEOM write access blocks
+normal exclusive consumers such as mounted filesystems. Another privileged
+raw writer can still interfere; do not run other disk tools concurrently.
+
+After opening and validating the target, the helper clears supplementary
+groups, drops root to the authenticated caller, closes other descriptors,
+limits descriptor rights and ioctl access, and enters Capsicum. The only
+device ioctl retained is DIOCGFLUSH. It then consumes image bytes. Closing
+the input pipe cancels writing or verification; broken output also aborts.
+
+Build and install the port
+--------------------------
+Use the existing ports checkout (currently /home/koryheard/5BSD-ports), not
+the empty /usr/ports directory. Normal ports dependency handling supplies
+lang/dart, x11-toolkits/flutter-engine, GTK 3, and polkit. All source archives,
+pub packages, and fonts are checksummed; application compilation is offline.
+pub-packages.json pins the hosted dependency closure and archive hashes.
+The port extracts these packages into an isolated PUB_CACHE; a development
+build needs the same pinned packages and hash files in its PUB_CACHE.
+The build uses the host CPU count for independent native compilation jobs.
+
+From a root shell, with the ports dependencies available:
+
+  cd /home/koryheard/5BSD-ports/sysutils/5bsd-imager
+  make PORTSDIR=/home/koryheard/5BSD-ports install
+
+Run `5bsd-imager` as your regular desktop user. A running system D-Bus,
+polkit service, and desktop authentication agent are required. Plasma's
+polkit agent works with this integration. The GUI refuses to run as root.
+The package installs the helper and policy as root-owned system files; it
+does not install a setuid binary or change sudo/doas rules.
+
+Local development build used on this workstation
+------------------------------------------------
+  /usr/local/bin/python3.12 files/app/build.py \
+    --flutter /home/koryheard/5bsd-flutter \
+    --dart /home/koryheard/5bsd-flutter/engine/src/out/host_release_native/dart-sdk/bin/dart \
+    --engine-out /home/koryheard/5bsd-flutter/engine/src/out/host_release_native \
+    --fonts /home/koryheard/5bsd-flutter/out/5bsd-app-packages/material-fonts.zip \
+    --output work/runtime
+
+Launch work/runtime/5bsd-imager normally. This development bundle contains
+its matching engine. --smoke-test renders the window, exports the app's own
+view to a newly created temporary directory, and exits after ten seconds.
+It reads the public disk inventory but cannot select images or drives, write,
+or request authentication. Add --preview-progress for a clearly labeled
+synthetic two-drive progress preview, or --preview-confirmation for the erase
+confirmation design. These modes do not run the helper or allow disk writes.
+
+For functional testing of this development bundle, installing only the
+helper and policy requires a root shell because /usr/local/libexec and the
+system policy directory must be administrator-owned:
+
+  cd /home/koryheard/5BSD-ports/sysutils/5bsd-imager
+  install -d -o root -g wheel -m 0755 /usr/local/libexec
+  install -d -o root -g wheel -m 0755 /usr/local/share/polkit-1/actions
+  install -o root -g wheel -m 0555 work/runtime/5bsd-imager-helper /usr/local/libexec/5bsd-imager-helper
+  install -o root -g wheel -m 0644 work/runtime/org.fivebsd.Imager.policy /usr/local/share/polkit-1/actions/org.fivebsd.Imager.policy
+
+Do not point the polkit action at an executable in a user-writable build
+directory. Install the helper at its fixed system path before trying the
+drive workflow. These commands do not flash anything.
+
+Validation
+----------
+  /usr/local/bin/python3.12 files/app/tests/run.py --work work/tests
+  dart files/app/tests/writer_test.dart
+
+The test-only driver refuses device nodes. It tests disk-name and transport
+validation, busy-state checks, size/overflow/sector rules, JSON encoding,
+sector padding, multi-chunk transfers, read-back corruption, truncated input,
+and cancellation, using temporary regular files. Its executable is not
+installed and production has no arbitrary-file write or test mode.
+
+Dart tests use fake unprivileged writer processes to check concurrent jobs,
+authorization failure isolation, cancellation, strict completion/verification,
+and changed-source / duplicate-target / protected-drive guards. XZ fixtures
+check exact decoded content on multiple writers, expanded capacity, corruption,
+truncation, and invalid signatures. No test writes device nodes.
+
+Native AOT compilation, GUI rendering, policy/desktop-file validation, and
+staging manifest checks were also run. Real SanDisk USB discovery and polkit
+prompting were tested. On 2026-10-07, an authorized physical test wrote a generated 512 MiB + 37 byte
+XZ image to the 123 GB SanDisk Ultra and verified all 536,871,424 padded bytes
+with SHA-256 through the production Dart writer and installed polkit helper.
+The helper was observed running as UID 1001 in Capsicum. The test took 22
+seconds including authorization. This drive does not support SYNCHRONIZE
+CACHE; the test exposed the initial abort and validated the explicit
+unsupported-flush notice after the fix. Other flush errors remain fatal.
+After a physical unplug/reconnect, a separate read-only hash check also
+matched every padded byte (SHA-256
+ccb7569ae9d4ee4d8317ecefa56756ff0132776f171edb7c92ec968282942594).
+This tests the hardware pipeline; it is not a boot test or GUI click automation.

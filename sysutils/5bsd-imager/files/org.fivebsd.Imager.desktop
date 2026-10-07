@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=5BSD Imager
+Comment=Write and verify disk images on USB drives
+Exec=5bsd-imager
+Icon=org.fivebsd.Imager
+Terminal=false
+Categories=System;
+StartupWMClass=org.fivebsd.Imager

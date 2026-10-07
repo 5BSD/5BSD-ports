@@ -1,0 +1,74 @@
+[
+  {
+    "name": "appkit_ui_element_colors",
+    "version": "1.0.1",
+    "languageVersion": "2.19",
+    "sha256": "b88a7c35d440fa3ac75222d0e2b7e3259200e531e33b5d2468e358119f3481dc"
+  },
+  {
+    "name": "characters",
+    "version": "1.4.1",
+    "languageVersion": "3.4",
+    "sha256": "faf38497bda5ead2a8c7615f4f7939df04333478bf32e4173fcb06d428b5716b"
+  },
+  {
+    "name": "collection",
+    "version": "1.19.1",
+    "languageVersion": "3.4",
+    "sha256": "2f5709ae4d3d59dd8f7cd309b4e023046b57d8a6c82130785d2b0e5868084e76"
+  },
+  {
+    "name": "cupertino_icons",
+    "version": "1.0.8",
+    "languageVersion": "3.1",
+    "sha256": "ba631d1c7f7bef6b729a622b7b752645a2d076dba9976925b8f25725a30e1ee6"
+  },
+  {
+    "name": "equatable",
+    "version": "2.1.0",
+    "languageVersion": "3.0",
+    "sha256": "3bce007a596ff8b3119c45d68aaef631272537c03d30e5d4534dd24bf4c5eaa2"
+  },
+  {
+    "name": "gradient_borders",
+    "version": "1.0.4",
+    "languageVersion": "3.0",
+    "sha256": "c65c9b2169cb32fa7164625fc438a597409576e4b5bee498655152abea4a93cc"
+  },
+  {
+    "name": "macos_ui",
+    "version": "2.2.2",
+    "languageVersion": "3.9",
+    "sha256": "09fb51d65b6a2d328ba5aa429ba0f7aabad5bc770193ea6e49da9f29bf95d835"
+  },
+  {
+    "name": "macos_window_utils",
+    "version": "1.9.1",
+    "languageVersion": "3.0",
+    "sha256": "cb918e1ff0b31fdaa5cd8631eded7c24bd72e1025cf1f95c819e483f0057c652"
+  },
+  {
+    "name": "material_color_utilities",
+    "version": "0.13.0",
+    "languageVersion": "3.5",
+    "sha256": "9c337007e82b1889149c82ed242ed1cb24a66044e30979c44912381e9be4c48b"
+  },
+  {
+    "name": "meta",
+    "version": "1.18.3",
+    "languageVersion": "3.5",
+    "sha256": "c82594181e3312f3d0695fc95aaaf7758d75b8d4ae2bbecf223b9fd5109a059d"
+  },
+  {
+    "name": "plugin_platform_interface",
+    "version": "2.1.8",
+    "languageVersion": "3.0",
+    "sha256": "4820fbfdb9478b1ebae27888254d445073732dae3d6ea81f0b7e06d5dedc3f02"
+  },
+  {
+    "name": "vector_math",
+    "version": "2.4.0",
+    "languageVersion": "3.10",
+    "sha256": "1d774bbdf6b72a0b12122fc1560c9c2d2a67db5a4a4cc2bd8a5c990ab20e3188"
+  }
+]

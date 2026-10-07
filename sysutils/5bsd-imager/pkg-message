@@ -1,0 +1,14 @@
+[
+{ type: install
+  message: <<EOM
+Run 5bsd-imager as your normal desktop user. A running system D-Bus,
+polkit service, and desktop authentication agent are required. Plasma's
+polkit agent is suitable. The GUI never receives or stores passwords.
+
+Version 0.2 supports .img, .iso, .raw, and XZ-compressed images and USB
+mass-storage da disks. Unmount the target first. Active pools, swap, and
+other open consumers are rejected. Source images must be bootable on
+the target hardware; copying an arbitrary ISO does not make it bootable.
+EOM
+}
+]

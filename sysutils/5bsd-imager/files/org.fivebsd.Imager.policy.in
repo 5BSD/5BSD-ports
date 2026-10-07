@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN" "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+  <vendor>5BSD</vendor>
+  <vendor_url>https://5bsd.org</vendor_url>
+  <action id="org.fivebsd.Imager.access">
+    <description>Access USB drives with 5BSD Imager</description>
+    <message>Administrator authentication is required for 5BSD Imager to inspect or erase a USB drive.</message>
+    <icon_name>org.fivebsd.Imager</icon_name>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">%%PREFIX%%/libexec/5bsd-imager-helper</annotate>
+  </action>
+</policyconfig>

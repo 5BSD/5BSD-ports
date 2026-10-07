@@ -1,0 +1,6 @@
+5BSD Imager is a native Dart and Flutter desktop application for writing
+raw and XZ-compressed disk images to USB mass-storage drives. Its macOS-style
+interface provides selection for multiple targets, desktop polkit
+authorization, progress, and SHA-256 read-back verification. The restricted
+native writer drops root and enters Capsicum after validating and opening
+the selected drive.
