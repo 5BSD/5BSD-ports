@@ -60,3 +60,12 @@ one registered desktop account per host.
 The engine and Instruments source archives are still staged locally pending
 publication of the exact checksummed toolkit-20261004 release assets. A fresh
 remote ports fetch and a full GUI install on a VM have not yet been validated.
+
+2026-10-10 PF consolidation:
+security/sshguard revision 3 selects the PF backend by default and installs
+only the PF firewall script (the native hosts helper remains). Remove the
+retired IPFW/IPFilter and other-platform scripts from pkg-plist. net/mpd5
+revision 20 removes the upstream IPFW configure probe and compile definition.
+Both pinned distfiles pass their existing SHA256 checks; port patches apply
+and private builds/staging and check-plist pass. No package installation performed. Evidence:
+/usr/obj/5BSD-pf-consolidation-20261010/{sshguard,mpd}-stage.log.

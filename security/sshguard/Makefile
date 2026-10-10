@@ -1,6 +1,6 @@
 PORTNAME=	sshguard
 PORTVERSION=	2.5.1
-PORTREVISION=	2
+PORTREVISION=	3
 PORTEPOCH=	1
 CATEGORIES=	security
 MASTER_SITES=	SF/sshguard/sshguard/${PORTVERSION}
@@ -14,6 +14,9 @@ LICENSE=	BSD2CLAUSE
 USE_RC_SUBR=	sshguard
 
 GNU_CONFIGURE=	yes
+
+# 5BSD uses PF; do not install the other platform firewall scripts.
+MAKE_ARGS+=	libexec_SCRIPTS=sshg-fw-pf
 
 SUB_FILES=	pkg-message
 

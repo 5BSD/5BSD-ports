@@ -1,0 +1,38 @@
+--- src/Makefile.orig
++++ src/Makefile
+@@ -54,7 +54,6 @@
+ USE_NG_PRED1=		yes
+ USE_NG_TCPMSS=		yes
+ USE_NG_VJC=		yes
+-USE_IPFW=		yes
+ USE_FETCH=		yes
+ USE_TCP_WRAP=		yes
+ #USE_AUTH_OPIE=		yes
+@@ -291,9 +290,6 @@
+ .if defined ( USE_NG_VJC )
+ CFLAGS+=	-DUSE_NG_VJC
+ .endif
+-.if defined ( USE_IPFW )
+-CFLAGS+=	-DUSE_IPFW
+-.endif
+ .if defined ( USE_FETCH )
+ CFLAGS+=	-DUSE_FETCH
+ LDADD+=		-lfetch
+--- src/configure.orig
++++ src/configure
+@@ -113,14 +113,7 @@
+     echo " not found."
+ fi
+ 
+-echo -n "Looking for ipfw ..."
+-if [ -e /sbin/ipfw  ]
+-then
+-    echo " found."
+-    echo "#define	HAVE_IPFW	1" >> $CONFIG
+-else
+-    echo " not found."
+-fi
++
+ 
+ 
+ echo -n "Looking for rad_bind_to() ..."
