@@ -1,0 +1,35 @@
+Python 3.12.15_1 native runtime preparation, 2026-10-09
+Source: https://www.python.org/downloads/release/python-31215/
+Archive SHA256 verified against the release page:
+c2c4321961fab0fb999d66e0cecf521c2ab3994c7992873ea99e306c1094fd5a
+
+CVE-2025-15367: POP3 rejects C0/DEL controls before sending a command.
+Backport of CPython b234a2b67539f787e191d2ef19a7cbdce32874e7.
+https://github.com/python/cpython/commit/b234a2b67539f787e191d2ef19a7cbdce32874e7
+Upstream held this change out of older branches for compatibility; this
+5BSD port deliberately rejects previously accepted control characters in
+POP3 usernames/passwords, matching the upstream fix.
+
+CVE-2025-15366: IMAP rejects NUL/CR/LF command arguments; other controls
+are not rejected. Adapted from CPython's narrow 3.13 backport:
+https://github.com/python/cpython/commit/71926d943c05bde79bd2a866933103541d91b6a2
+The 3.12 API still requires callers to quote mailbox names. Tests preserve
+that behavior, check str/bytes inputs, and permit a quoted tab.
+
+The upstream POP3 and IMAP suites with adapted regression cases pass on
+the rebuilt native Python 3.12.15 interpreter: 178 tests, 172 pass, six
+skipped, no failures. Four skips require external network resources; two
+are disabled upstream because the remote Cyrus server blocks connections.
+All 93 Mojo packaged-importer/extension cases also pass against this runtime.
+Evidence: /usr/obj/mojo-port-validation/2026-10-09/python-security/ and
+python315-package-interop-retry/. Clean VM package validation is pending.
+
+The local VuXML ranges mark only python312 >= 3.12.15_1 fixed for these
+two backports. A flattened copy of the complete local advisory database
+is used for this build's audit; vulnerability checks are not disabled.
+The system-wide interpreter and vulnerability database are unchanged.
+
+The native VM installation check exposed an undeclared libb2 dependency from
+Python's BLAKE2 module. LIB_DEPENDS now declares libb2.so:devel/libb2; the native
+libb2 package is included in the verified runtime closure. BLAKE2b and BLAKE2s
+known-answer checks pass with that staged library. Clean VM validation continues.

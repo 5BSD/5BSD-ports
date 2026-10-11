@@ -15,7 +15,8 @@ WWW=		https://www.python.org/
 
 LICENSE=	PSFL
 
-LIB_DEPENDS=	libexpat.so:textproc/expat2 \
+LIB_DEPENDS=	libb2.so:devel/libb2 \
+		libexpat.so:textproc/expat2 \
 		libffi.so:devel/libffi
 
 USES=		compiler:c11 cpe ncurses pathfix pkgconfig \
