@@ -10,8 +10,169 @@ configuration uses 5BSD-ports at file:///usr/5bsd-packages/ports. Publish the
 native package catalogue there with pkg repo. Remote deployments must supply
 a real package-server URL and signing policy in
 /usr/local/etc/pkg/repos/5BSD-ports.conf. No public catalogue is claimed here.
-Base packages remain in /usr/obj/usr/src/repo; matching hardware packages
-remain in /usr/5bsd-packages/hardware.
+For this host, the custom checkout is /usr/obj/5BSD-ports (selected through
+PORTSDIR); /usr/ports remains the conventional checkout location. Base and
+matching hardware packages are built separately and published as one verified
+repository under /usr/obj/usr/src/repo. Use the maintained system-packages,
+hardware-packages, hardware-packages-check and publish-packages source
+targets. Base-only output advances latest-built; only complete publication
+advances latest. Hardware staging belongs under /usr/obj, not a second
+configured hardware update repository or a home-directory repository.
+
+
+What 5BSD maintains beyond upstream FreeBSD
+-----------------------------------------
+Inventory checked 2026-10-08 at ports commit a10d155af. This is an inventory
+of the checkout, not a claim that every listed project is packaged or tested.
+Most of this tree remains upstream FreeBSD ports. Compared with the imported
+baseline e3ad8fc58, the custom port origins are:
+
+  lang/dart                    3.13.5  Native Dart SDK and bootstrap support
+  x11-toolkits/flutter-engine   0.1.0   Native Flutter GTK engine and tooling
+  sysutils/5bsd-instruments     0.3.9   Native Flutter instrumentation app
+  sysutils/5bsd-imager          0.2.0   Native Flutter image-writing app
+
+These ports name kory@5bsd.org as maintainer. Dart and the Flutter engine use
+the same pinned 5bsd-flutter source snapshot; Dart and Flutter engine ports
+are currently amd64-only. Imager is also amd64-only. Imager's application
+source lives under sysutils/5bsd-imager/files/app in this checkout. Category
+registrations, toolkit smoke tooling and this documentation are also local
+maintenance. Package versions here are an audit snapshot; port Makefiles
+remain authoritative.
+
+The source/bootstrap archives are referenced through the 5BSD-ports release
+area, not an identified separate public Dart/Flutter fork. Record source
+revision, downstream patch provenance and bootstrap provenance with releases.
+On 2026-10-08 the public API for toolkit-20261004 returned 404; availability
+of the release and exact checksummed assets remains a publication blocker.
+Existing validation notes below describe prior work, not tests rerun during
+this inventory audit. No additional Imager validation is claimed here.
+
+GGML CPU affinity: misc/ggml now carries a native FreeBSD pthread affinity
+patch and an explicit pthread link dependency (port revision 2). Vulkan-only
+LLVM/SPIR-V build dependencies are conditional, so the CPU-only package builds
+with base Clang. Its base-OpenMP model runs pass at 8/16 threads using
+KMP_BLOCKTIME=0 on the busy validation host. All 21 GGML CTest cases and
+101 explicit CPU ADD cases pass. Requested
+CPU masks now take effect; NUMA policy and thread priority are unchanged. Validation
+and limitations are recorded in README.mojo-hardware.5BSD. This is a downstream
+patch to the upstream project, not a separate 5BSD source fork.
+
+llama.cpp test integration: misc/llama-cpp declares Jinja2 for Python template
+comparisons and supplies the selected Python flavor through python3. Its
+vocabulary wrapper accepts verified offline fixtures and fails on missing
+fixtures or tokenizer errors. All 60 CPU CTest entries pass across the main
+run and focused retests. See misc/llama-cpp/files/README.tests.5BSD.
+
+Mojo dependency work (2026-10-09): devel/bazel9 revision 4 builds its native
+launcher with the local JDK toolchain and standalone Java compilation; native
+version, stage QA and plist checks pass. java/openjdk21 revision 2 preserves
+the service-agent's int-sized C boolean when FreeBSD headers include stdbool.h;
+its native package now builds and passes virtual-thread/process checks and
+Bazel C++/Java/Python build actions. Clean VM qualification continues.
+devel/glib20 revision 1 consistently selects base libelf to match its existing
+base ELF headers; an installed elfutils pkg-config file can no longer add an
+undeclared, ABI-mismatched dependency. ELF resource listing/extraction passes.
+lang/python312 is updated to
+3.12.15_1 with reviewed POP3/IMAP injection backports, matching doc distfiles
+and scoped VuXML corrections. Native mail tests pass (172 pass, four network
+skips and two upstream Cyrus-specific skips), as do all 93 Mojo Python interop cases. See
+lang/python312/files/README.security.5BSD for provenance and compatibility.
+
+Projects to add or qualify in ports
+----------------------------------
+Mojo: native CPU development port at lang/mojo.
+Hardware/runtime qualification, Pi 4/5 targets and inference boundaries:
+README.mojo-hardware.5BSD.
+Upstream: https://github.com/modular/modular (Apache-2.0 with LLVM exceptions).
+Downstream FreeBSD/5BSD integration of revision
+babedf564bd7e128bd161453f341f6b4b61aa3ca (Mojo 1.2.0.dev2026100805).
+The compiler builds with base Clang 21.1.8 and the native Bazel 9.2.0_4 package,
+using private pinned LLVM/MLIR 24 sources. No base changes were needed.
+On 2026-10-09, the expanded native CPU run finished with 1169 passing
+Bazel targets, 6 skipped targets and no failures. Nine more CPU documentation
+targets, 12 native LSP cases, all 259 stdlib LSP parse checks and six configuration
+cases also pass. The port now includes the native language server and formatter. The formatter
+passes 1004 unit cases with two upstream skips; its relocated 67-file package
+passes formatting, compile/run and error-handling checks. A staged-package
+Python run passes all 93 importer/extension cases. Real operators, process,
+life-grid and Python examples run. Stage QA, plist checks and development
+package creation pass; a fresh unpack compiles examples and preserves ASan
+crash reports with Mojo tracing enabled or disabled. The 503 checksummed
+inputs pass ports fetch/checksum/extract/patch validation; dependency analysis
+passes with repository downloads disabled. A fresh complete ports build using
+a completed Bazel package, clean-VM installation/removal, and full GPU/MAX
+suites remain unqualified. This is not a release-qualified package.
+Keep Mojo's LLVM/MLIR private; base upgrades are a separate qualification.
+See README.mojo.5BSD, README.mojo-tests.5BSD, and
+/usr/obj/mojo-port-validation/2026-10-09/native-cpu-final/.
+
+BSDGhidra: https://github.com/5BSD/BSDGhidra (default branch master).
+This is an actual 5BSD fork, with FreeBSD PTY, build and LLDB integration
+recorded in FREEBSD_LLDB_STATUS.md. It is not yet a custom port in this
+checkout. Upstream-derived devel/ghidra is not evidence that this fork is
+packaged. Decide whether to patch that origin or create a distinct origin;
+avoid conflicting installations. Pin the fork revision and offline build
+dependencies. Qualify Java/native helpers, headless analysis, GUI, and the
+Python-enabled LLDB debugger path. Its llvm19/Python 3.11 examples are not
+our package version policy; use one explicitly matched, supported pair.
+
+ESP SDK: planned, interpreted here as Espressif ESP-IDF. A 5BSD-specific
+source repository was not found in the public organization inventory;
+confirm its source and maintainer before adding a claimed fork URL.
+Upstream: https://github.com/espressif/esp-idf
+Existing upstream-derived comms/py-esptool covers flashing tooling, not the
+whole SDK. Package the supported compiler/toolchain, Python dependencies,
+CMake/Ninja, OpenOCD and target support with pinned versions and offline
+inputs. Test native 5BSD builds, flashing and debugging on selected Xtensa
+and RISC-V ESP boards. Do not describe Linux prebuilt tools as native support.
+
+5BSD project repository directory
+--------------------------------
+The public organization API listed these repositories on 2026-10-08. This
+is a discovery directory, not a promise that each is independently supported
+or installable. Confirm integration/ownership before creating new ports for
+kernel facilities that may already be part of base.
+
+  https://github.com/5BSD/5BSD
+    Operating-system source; base/pkgbase integration, not a ports package.
+  https://github.com/5BSD/5BSD-ports
+    This custom ports collection and toolkit release-asset location.
+  https://github.com/5BSD/BSDGhidra
+    Reverse-engineering suite fork; packaging work described above.
+  https://github.com/5BSD/FreeBSDKit
+    Project repository; standalone packaging/support status not established.
+  https://github.com/5BSD/mac_abac
+    Attribute-based access-control project; audit base overlap and relevance.
+  https://github.com/5BSD/Keyvault
+    Kernel key-storage/capability project; audit base overlap.
+  https://github.com/5BSD/SecurityCoalitions
+    Process/resource coalition project; audit base overlap.
+  https://github.com/5BSD/CapabilityAccessControlList
+    Capability access-list project; audit base overlap.
+  https://github.com/5BSD/OpenEndpointSecurity
+    Endpoint-security project; audit base overlap and userland packaging.
+  https://github.com/5BSD/ObservableBSD
+    Observation/telemetry project; audit current build and packaging needs.
+
+Do not count upstream-derived LLVM, Ghidra, DRM, firmware or esptool ports as
+5BSD-maintained forks merely because our images select them. Record actual
+patches, origin, upstream revision, maintainer and test coverage when that
+changes. Keep a clear distinction between software selection and downstream
+source maintenance.
+
+Maintenance requirements
+------------------------
+For each added project, declare its canonical repository, pinned revision,
+license/redistribution terms, supported architectures, native build/runtime
+dependencies, package ownership, upgrade behavior and smoke tests. Fetch
+all inputs through checksummed ports distfiles; avoid network downloads in
+build stages. Submit portable fixes upstream and remove superseded patches.
+
+Review the delta against the FreeBSD import baseline at each sync. Preserve
+upstream maintainers on untouched origins. Update this inventory whenever
+custom origins are added, removed or upstreamed, and publish reproducible
+release archives before advertising successful public fetch/install.
 
 Native toolkit
 --------------
