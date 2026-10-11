@@ -1,0 +1,33 @@
+Native CPU testing on 5BSD
+=========================
+Build misc/ggml with VULKAN disabled for CPU-only qualification. The llama-cpp
+port uses that library through LLAMA_USE_SYSTEM_GGML. Its tests require the
+Python flavor's Jinja2 package; python and python3 are build-local aliases to
+that flavor. No unversioned Python command needs to be installed globally.
+
+For b10975, prepare https://huggingface.co/ggml-org/vocabs at revision
+cee4b7a68518c579bb758fca46bb149cd109348e, with its LFS content downloaded.
+This is the last fixture revision before b10975. It contains six GGUF models
+with matching .inp/.out files. Newer revision
+2c9db6cf7f8f6f80ec1c13e0cd5016c5a96de1c6 adds the plamo3 tokenizer, which b10975
+does not implement; silently following main makes this release's test
+coverage depend on newer unsupported formats.
+
+Run with the absolute directory containing those model subdirectories:
+
+  make TEST_ENV='KMP_BLOCKTIME=0 LLAMA_TEST_VOCABS_DIR=/path/to/vocabs' test
+
+The tokenizer wrapper accepts the prepared directory without accessing Git.
+It now fails if a download, tokenizer check, or empty fixture selection fails.
+Previously git=false in the port could leave an empty fixture set and make
+the wrapper report success without running a tokenizer test.
+
+KMP_BLOCKTIME=0 avoids GGML's default OpenMP spinning on a busy shared host.
+It does not change compilation flags or disable vector instructions.
+The main test suite also checks a small model downloaded by CMake against
+its upstream SHA256; offline runs can prepopulate .build/tinyllamas/
+stories15M-q4_0.gguf with the artifact specified in tests/CMakeLists.txt.
+
+Qualification evidence: /usr/obj/mojo-port-validation/2026-10-09/llama-cpu-tests/
+and ../llama-test-fixtures/. The first run and subsequent harness corrections
+are recorded separately; GPU and MAX execution are not covered by these tests.

@@ -2,7 +2,7 @@ PORTNAME=	ggml
 DISTVERSIONPREFIX=	v
 DISTVERSION=	0.23.0-38 # latest hash for llama-cpp
 DISTVERSIONSUFFIX=	-g7840aaba
-PORTREVISION=	1
+PORTREVISION=	2
 CATEGORIES=	misc # machine-learning
 
 MAINTAINER=	yuri@FreeBSD.org
@@ -14,9 +14,7 @@ LICENSE_FILE=	${WRKSRC}/LICENSE
 
 BROKEN_i386=	compilation fails: LLVM ERROR: out of memory
 
-BUILD_DEPENDS=	spirv-headers>0:graphics/spirv-headers
-
-USES=		cmake:testing compiler:c++17-lang llvm:build,min=22 python:run shebangfix
+USES=		cmake:testing compiler:c++17-lang python:run shebangfix
 USE_LDCONFIG=	yes
 
 USE_GITHUB=	yes
@@ -42,8 +40,10 @@ OPTIONS_DEFINE=		VULKAN
 OPTIONS_DEFAULT=	VULKAN
 OPTIONS_SUB=		yes
 
+VULKAN_USES=		llvm:build,min=22
 VULKAN_CMAKE_BOOL=	GGML_VULKAN
 VULKAN_BUILD_DEPENDS=	glslc:graphics/shaderc \
+			spirv-headers>0:graphics/spirv-headers \
 			vulkan-headers>0:graphics/vulkan-headers
 VULKAN_LIB_DEPENDS=	libvulkan.so:graphics/vulkan-loader
 

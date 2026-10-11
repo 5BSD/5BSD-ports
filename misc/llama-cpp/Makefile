@@ -16,6 +16,7 @@ LICENSE=	MIT
 LICENSE_FILE=	${WRKSRC}/LICENSE
 
 LIB_DEPENDS=	libggml-base.so:misc/ggml
+TEST_DEPENDS=	${PYTHON_PKGNAMEPREFIX}Jinja2>0:devel/py-Jinja2@${PY_FLAVOR}
 
 USES=		cmake:testing compiler:c++11-lang python:run shebangfix ssl
 
@@ -53,7 +54,8 @@ OPTIONS_SUB=		yes
 EXAMPLES_CMAKE_BOOL=	LLAMA_BUILD_EXAMPLES
 
 BINARY_ALIAS=	git=false \
-		python=${PYTHON_CMD} # for tests
+		python=${PYTHON_CMD} \
+		python3=${PYTHON_CMD} # for tests
 
 post-patch:
 	# set version in the code
