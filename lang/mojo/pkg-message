@@ -1,0 +1,16 @@
+[
+{ type: install
+  message: <<EOM
+This development snapshot provides the native CPU Mojo compiler, standard
+library, language server, formatter, C FFI and Python 3.12 importer on amd64 FreeBSD 16 / 5BSD.
+The tested CPU configuration is x86-64-v3.
+
+GPU execution, the MAX SDK, the Mojo debugger and REPL are not
+included. This port uses its own pinned LLVM/MLIR sources;
+it does not require replacing base LLVM.
+
+Examples are installed under share/examples/mojo when EXAMPLES is enabled.
+See the ports tree's README.mojo.5BSD for qualification status and limitations.
+EOM
+}
+]

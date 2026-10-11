@@ -1,0 +1,34 @@
+--- /dev/null
++++ b/Mojo/tools/mblack/tests/data/include_exclude_tests/b/dont_exclude/a.mojo
+@@ -0,0 +1 @@
++# File-discovery fixture. Its path, not its contents, is under test.
+--- /dev/null
++++ b/Mojo/tools/mblack/tests/data/include_exclude_tests/b/dont_exclude/a.pyi
+@@ -0,0 +1 @@
++# File-discovery fixture. Its path, not its contents, is under test.
+--- /dev/null
++++ b/Mojo/tools/mblack/tests/data/include_exclude_tests/b/dont_exclude/a.pie
+@@ -0,0 +1 @@
++# File-discovery fixture. Its path, not its contents, is under test.
+--- /dev/null
++++ b/Mojo/tools/mblack/tests/data/nested_gitignore_tests/root/a.mojo
+@@ -0,0 +1 @@
++# File-discovery fixture. Its path, not its contents, is under test.
+--- /dev/null
++++ b/Mojo/tools/mblack/tests/data/nested_gitignore_tests/root/child/a.mojo
+@@ -0,0 +1 @@
++# File-discovery fixture. Its path, not its contents, is under test.
+--- /dev/null
++++ b/Mojo/tools/mblack/tests/data/nested_gitignore_tests/root/child/b.mojo
+@@ -0,0 +1 @@
++# File-discovery fixture. Its path, not its contents, is under test.
+--- a/Mojo/tools/mblack/tests/data/nested_gitignore_tests/root/.gitignore
++++ b/Mojo/tools/mblack/tests/data/nested_gitignore_tests/root/.gitignore
+@@ -1 +1 @@
+-a.py
++a.mojo
+--- a/Mojo/tools/mblack/tests/data/nested_gitignore_tests/root/child/.gitignore
++++ b/Mojo/tools/mblack/tests/data/nested_gitignore_tests/root/child/.gitignore
+@@ -1 +1 @@
+-b.py
++b.mojo

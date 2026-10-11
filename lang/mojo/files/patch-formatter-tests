@@ -1,0 +1,149 @@
+--- a/Mojo/tools/mblack/tests/test_black.py
++++ b/Mojo/tools/mblack/tests/test_black.py
+@@ -141,7 +141,11 @@
+     """Make sure STDOUT and STDERR are kept separate when testing Black via its CLI."""
+ 
+     def __init__(self) -> None:
+-        super().__init__(mix_stderr=False)
++        # Click 8.2+ always captures stdout and stderr separately.
++        if "mix_stderr" in inspect.signature(CliRunner).parameters:
++            super().__init__(mix_stderr=False)
++        else:
++            super().__init__()
+ 
+ 
+ def invokeBlack(
+@@ -224,10 +228,10 @@
+             input=BytesIO(source.encode("utf8")),
+         )
+         self.assertEqual(result.exit_code, 0)
+-        self.assertFormatEqual(expected, result.output)
+-        if source != result.output:
+-            mblack.assert_equivalent(source, result.output)
+-            mblack.assert_stable(source, result.output, DEFAULT_MODE)
++        self.assertFormatEqual(expected, result.stdout)
++        if source != result.stdout:
++            mblack.assert_equivalent(source, result.stdout)
++            mblack.assert_stable(source, result.stdout, DEFAULT_MODE)
+ 
+     def test_piping_diff(self) -> None:
+         diff_header = re.compile(
+@@ -248,7 +252,7 @@
+         )
+         self.assertEqual(result.exit_code, 0)
+         # drop the first two lines because they include tempfile paths.
+-        actual = "".join(result.output.splitlines(keepends=True)[2:])
++        actual = "".join(result.stdout.splitlines(keepends=True)[2:])
+         actual = actual.rstrip() + "\n"  # the diff output has a trailing space
+         self.assertEqual(expected, actual)
+ 
+@@ -326,7 +330,7 @@
+             self.assertEqual(result.exit_code, 0)
+         finally:
+             os.unlink(tmp_file)
+-        actual = result.output
++        actual = result.stdout
+         # drop the first two lines because they include tempfile paths.
+         actual = "".join(actual.splitlines(keepends=True)[2:])
+         if expected != actual:
+@@ -444,7 +448,7 @@
+             self.assertEqual(result.exit_code, 0)
+         finally:
+             os.unlink(tmp_file)
+-        actual = result.output
++        actual = result.stdout
+         # drop the first two lines because they include tempfile paths.
+         actual = "".join(actual.splitlines(keepends=True)[2:])
+         actual = actual.rstrip() + "\n"  # the diff output has a trailing space
+@@ -1681,7 +1685,7 @@
+             self.assertEqual(result.exit_code, 0)
+         finally:
+             os.unlink(tmp_file)
+-        actual = result.output
++        actual = result.stdout
+         # drop the first two lines because they include tempfile paths.
+         actual = "".join(actual.splitlines(keepends=True)[2:])
+         self.assertEqual(actual, expected)
+@@ -1785,46 +1789,35 @@
+ 
+             self.compare_results(result, formatted, 0)
+ 
+-    @pytest.mark.skip("the mock can't reliable captures the calls")
+     def test_code_option_config(self) -> None:
+-        """
+-        Test that the code option finds the pyproject.toml in the current directory.
+-        """
+-        with patch.object(mblack, "parse_pyproject_toml", return_value={}) as parse:
+-            args = ["--code", "print"]
+-            # This is the only directory known to contain a pyproject.toml
+-            with change_directory(PROJECT_ROOT):
+-                CliRunner().invoke(mblack.main, args)
+-                pyproject_path = Path(PROJECT_ROOT) / "pyproject.toml"
+-
+-            assert (
+-                len(parse.mock_calls) >= 1
+-            ), "Expected config parse to be called with the current directory."
+-
+-            _, call_args, _ = parse.mock_calls[0]
+-            assert (
+-                call_args[0].lower() == str(pyproject_path).lower()
+-            ), "Incorrect config loaded."
+-
+-    @pytest.mark.skip("the mock can't reliable captures the calls")
++        """Discover and apply a real config in the current directory."""
++        with TemporaryDirectory() as directory:
++            root = Path(directory)
++            (root / "pyproject.toml").write_text(
++                "[tool.black]\nskip-string-normalization = true\n"
++            )
++            with change_directory(root):
++                mblack.find_project_root.cache_clear()
++                result = CliRunner().invoke(mblack.main, ["--code", "print('hello')"])
++            mblack.find_project_root.cache_clear()
++        assert result.exit_code == 0, result.output
++        assert result.stdout == "print('hello')\n"
++
+     def test_code_option_parent_config(self) -> None:
+-        """
+-        Test that the code option finds the pyproject.toml in the parent directory.
+-        """
+-        with patch.object(mblack, "parse_pyproject_toml", return_value={}) as parse:
+-            with change_directory(THIS_DIR):
+-                args = ["--code", "print"]
+-                CliRunner().invoke(mblack.main, args)
+-
+-                pyproject_path = Path(PROJECT_ROOT) / "pyproject.toml"
+-                assert (
+-                    len(parse.mock_calls) >= 1
+-                ), "Expected config parse to be called with the current directory."
+-
+-                _, call_args, _ = parse.mock_calls[0]
+-                assert (
+-                    call_args[0].lower() == str(pyproject_path).lower()
+-                ), "Incorrect config loaded."
++        """Discover and apply a real config from a child directory."""
++        with TemporaryDirectory() as directory:
++            root = Path(directory)
++            (root / "pyproject.toml").write_text(
++                "[tool.black]\nskip-string-normalization = true\n"
++            )
++            child = root / "child"
++            child.mkdir()
++            with change_directory(child):
++                mblack.find_project_root.cache_clear()
++                result = CliRunner().invoke(mblack.main, ["--code", "print('hello')"])
++            mblack.find_project_root.cache_clear()
++        assert result.exit_code == 0, result.output
++        assert result.stdout == "print('hello')\n"
+ 
+     def test_for_handled_unexpected_eof_error(self) -> None:
+         """
+@@ -2085,7 +2078,7 @@
+ # completely violates the assumptions these tests make about paths (e.g. how the
+ # root is related to the test files). This is probably okay, since we don't make
+ # changes to the collection logic, only the formatting logic.
+-@pytest.mark.skip("bazel's sandboxing breaks the assumptions of these tests")
++@pytest.mark.skipif("TEST_SRCDIR" in os.environ, reason="requires the source filesystem outside the Bazel sandbox")
+ class TestFileCollection:
+     def test_include_exclude(self) -> None:
+         path = THIS_DIR / "data/include_exclude_tests"

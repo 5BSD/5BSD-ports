@@ -1,0 +1,260 @@
+Mojo native CPU port
+===================
+Development port: lang/mojo. Release qualification remains incomplete.
+Recorded on 2026-10-09; native amd64 FreeBSD 16 / 5BSD.
+
+Source and toolchain
+--------------------
+Upstream: https://github.com/modular/modular
+Revision: babedf564bd7e128bd161453f341f6b4b61aa3ca
+Mojo version: 1.2.0.dev2026100805
+Ports version: 1.2.0.d2026100805
+Licenses: Apache-2.0 with LLVM exceptions; formatter also includes MIT and PSFL components.
+This is a development snapshot, not a qualified stable release.
+
+The compiler uses upstream's pinned LLVM/MLIR revision
+ a83a3a4ebd64653dbe6a85819996b3bcfd6753ec (24.0.0git), archive SHA256
+ c26cddd8981c07cd562d05ef2baa58c2b30e0dd3537b8c42971463680d54dc1f,
+with upstream's LLVM patches. Keep this toolchain private to Mojo. The
+native compiler builds with existing base Clang 21.1.8; no base compiler,
+kernel or libc changes were required. Base LLVM upgrades are separate work.
+Base MLIR integration was not found; devel/llvm21 enables MLIR by default.
+
+The build dependency is devel/bazel9 >= 9.2.0. The native Bazel 9.2.0_4
+executable and OpenJDK 21.0.12+8.2_2 packages now build. Bazel passes stage QA
+and plist checks; the rebuilt JDK passes compilation, virtual-thread,
+subprocess and file-I/O checks. Native Bazel passes the new NUMA/affinity
+tests and the full CPU rerun (1169 pass, six skip). The fresh end-to-end ports
+build is still in progress;
+clean Bazel/JDK installation still needs native dependency qualification.
+Earlier validation used the Java-only bootstrap. Standalone build/test
+actions avoid depending on a native sandbox helper.
+
+Port contents and dependencies
+------------------------------
+The port fetches 503 checksummed distfiles during the fetch phase, including
+all required Bazel registry files, dependency archives, patches and overlays.
+Its build and test commands disable repository downloads and freeze the
+Bazel lockfile. The native compiler, runtime and stdlib are built from source
+with all logical CPUs. Runtime dependencies are curl, Python 3.12 and the
+formatter's click, mypy_extensions, pathspec, platformdirs and tomli Python ports;
+Bazel and LLVM are not package runtime dependencies. Tests also use NumPy and pytest.
+
+The package installs a private SDK in libexec/mojo, a bin/mojo launcher,
+the language server, formatter, Python importer, documentation and
+operators/process/Python examples.
+The launcher selects the SDK, system linker and Python interpreter. ELF
+RUNPATHs use the private SDK; CompilerRT has a stable library SONAME.
+The default launcher disables telemetry and unsupported crash reporting.
+
+Only amd64 FreeBSD 16 has been exercised; Mojo programs were tested with
+the x86-64-v3 CPU configuration. The patch includes an aarch64 target triple,
+but that architecture is not enabled in the port without qualification.
+GPU execution, MAX, debugger and REPL are not included. Native NUMA CPU
+discovery and thread CPU/memory affinity pass on this single-domain host and
+in a two-domain CPU-only VM. Physical multi-socket placement, PCI locality and
+broader socket bindings remain unqualified.
+LLVM's optional LZMA support is disabled pending native dependency wiring.
+
+FreeBSD integration
+-------------------
+The downstream source patch selects native platform triples, Python and
+system curl, and fixes dependency build assumptions for FreeBSD. Runtime
+changes include arc4random_buf, aligned allocation, sysctl host information,
+x86 CPUID cache information, ELF symbol resolution and GNU build IDs.
+The physical-core query uses kern.smp.cores instead of LLVM's unimplemented
+FreeBSD query. CompilerRT's SONAME and Python package discovery support the
+installed SDK layout.
+
+Standard-library changes cover platform detection, errno/open/socket/clock
+constants, RTLD_DEFAULT and native stat/dirent/passwd layouts. Measured
+amd64 sizes are stat=224, dirent=280 (name offset 24), passwd=80, pid_t=4.
+The timestamp assertion accepts a same-width signed integral representation;
+its units and conversion behavior are unchanged. Boundary probes passed.
+Other fixes address native Python toolchain fields, C integer optionals,
+Span equality and a formatting-test module-name collision.
+
+Test configuration advertises only features actually compiled into native
+tools. Optimized builds lack assertion-only LLVM debug options. Tests retain
+functional RUN lines when only a debug-output check needs ASSERTIONS.
+CPU tests do not acquire unnecessary MAX dependencies. Fix-it tests operate
+on temporary copies, and the bad-symlink parser test cleans its temporary
+directory before reruns. The object/shared-library integration tests also
+clear their own temporary directories before creation, so standalone reruns
+do not fail on stale output. These are tool/test changes, not OS changes.
+
+The MLIR timing report now gives sequential pass managers separate hidden
+parent scopes; reused pass addresses no longer hide later pass names. The
+existing timing regression passes unchanged. The private LLVM patch preserves
+ASan signal handlers installed through FreeBSD's raw syscall before libthr
+initializes its sigaction cache. Synchronizing the cached action before LLVM
+registers its own handler fixes both crash tracing and configuration-file
+cleanup. No base LLVM or libc changes are involved.
+
+Validation and outstanding work
+-------------------------------
+The combined coverage-audit run passed 1169 Bazel test targets, with
+6 skipped targets and no failures (205 more passing targets than the
+original CPU selection). The port's Makefile.tests now includes the additional
+native targets: all 35 applicable Support unit suites, all eight AsyncRT unit
+suites, 155 documentation examples, documentation compiler and Support
+regressions, the build-ID shared-library test, and small example/tool tests.
+FreeBSD OS detection and socket layouts have new native tests. The 96 CLI cases
+and 20 documentation-generator cases pass; the 208 integration cases have
+207 passes and one expected failure. See README.mojo-tests.5BSD for remaining
+coverage gaps, including skips inside passing targets and missing AI runtimes.
+
+An additional staged-package Python run passes 93 cases with no skips or
+failures: eight importer/path cases and 85 cases across all 12 extension
+example groups. These are separate from the 1169 Bazel target count.
+The reusable target is make test-python-package in lang/mojo. It builds
+upstream extension fixtures with the staged compiler and runs their original
+pytest checks. The verified environment used Python 3.12, pytest 8.2.2 and
+NumPy 2.4.6; newer pytest versions selected by ports are not yet qualified.
+The launcher imports sys into __main__, as the upstream launcher does, before
+pytest starts; omitting that setup caused earlier fixture failures. Original
+failure logs and the corrected results are retained under
+/usr/obj/mojo-port-validation/2026-10-09/python-package-target/ and
+python-harness/. Bazel's FreeBSD pycross dependency selection is still open.
+
+The refreshed package passed stage QA, plist checks, real packaged examples,
+Python interop, native CPU-count checks and both ASan crash-trace modes.
+Package SHA256: e67115eac65dbb643d21ea5dc7f926a86ad9a1cbcc310f9eb55e01f70530a5df
+Evidence: /usr/obj/mojo-port-validation/2026-10-09/coverage-audit/.
+Hardware targets and runtime blockers: README.mojo-hardware.5BSD.
+
+Earlier CPU baseline
+--------------------
+The earlier expanded CPU run completed with 964 passing Bazel targets,
+6 skipped targets and no failed targets. This includes compiler/support
+unit tests, all 382 parser targets, KGEN, the standard-library CPU selection,
+the CLI group, compiler integration, stdlib-source determinism, and examples.
+The earlier 966-target run also passed (958 passed, eight skipped).
+The CPU CLI and integration aggregates run exclusively after other build/test
+work because lit uses all host CPUs. CLI and stdlib-source determinism use
+the large timeout; a combined run exposed contention and timeouts under the
+default size. Determinism imports the whole standard library four times.
+
+The 85-case CLI group has 84 passes and one Linux-only unsupported case.
+The 208-case compiler integration group has 206 passes, one expected failure
+and one Linux-only unsupported case. Both crash regressions pass with and
+without Mojo tracing, including ASan diagnostics and source locations. The
+erf/tanh math suites execute on FreeBSD and pass all eight cases.
+
+Across the final run, the audit records 972 lit passes,
+2 expected failures and 8 unsupported cases. Mojo TestSuite
+summaries report 2532 passing cases and three intentional filtering-test skips.
+These case totals are a different level of counting from Bazel target totals.
+
+The six skipped Bazel targets are the GPU range-codegen test, Linux/macOS
+network ABI tests, and aarch64/Linux/macOS platform tests. Three additional
+GPU-only stdlib targets are explicitly excluded by the CPU recipe. Lit skips
+cover foreign platforms and LLVM assertion-only debug features unavailable
+in the optimized build. Unsupported and expected-failure cases are not passes.
+The CPU integration group excludes eight MAX-dependent layout files; GPU/MAX,
+debugger and full upstream product qualification are outside this port.
+
+The complete source patch applies to a fresh upstream archive using the ports
+framework's patch arguments. Ports fetch/checksum/extract/patch and fresh
+dependency analysis with downloads disabled and a frozen lockfile passed.
+These checks are not a fresh complete offline compilation.
+
+Ports stage-qa, check-plist and package creation passed using already-built
+native artifacts and a local chrpath bootstrap. The refreshed package is:
+ /usr/obj/mojo-port-stage-check/pkg/mojo-1.2.0.d2026100805.pkg
+A fresh unpack compiled and ran operators/process and Python hello/Person;
+all ten packaged operator cases passed. CPU counts match the kernel (8 physical,
+16 logical). Packaged ASan crash diagnostics passed with tracing enabled and
+disabled. Package ABI: FreeBSD:16:amd64; runtime dependencies are curl/Python3.12.
+
+Still required before release qualification: a clean full ports build with
+the packaged Bazel, and clean-VM package installation, dependency resolution,
+offline examples, removal and reinstall. Native Bazel packaging is complete;
+its isolated offline build-action and package lifecycle qualification now passes. No host installation, system upgrade, reboot or update-repository
+publication was performed.
+
+Build records
+-------------
+Source: /usr/obj/mojo-port-src (branch freebsd-native-port)
+Output/cache: /usr/obj/mojo-bazel-output and /usr/obj/mojo-bazel-cache
+Durable validation records: /usr/obj/mojo-port-validation/2026-10-09/
+The archive contains test logs/audits, final patch and package hashes, package
+manifest, native diagnostic probes and packaged-example logs. Key records:
+ mojo-cpu-verified-tests.log and cpu-complete-audit.json
+ mojo-stack-llvm-signal-fixed.log
+ mojo-port-final-source-check.log and mojo-port-final-offline-analysis.log
+ mojo-port-final-stage.log, mojo-port-final-qa.log, mojo-port-final-package.log
+ verify-final-package.log and package-final-smoke/
+ record.json and package-manifest.json
+Preparation scripts remain in /tmp/mojo-port-work.
+
+Current validation uses the compiled native Bazel client via
+/tmp/mojo-port-work/bazel-compiled; it holds Bazel's output lock. The older
+Java-only launcher is historical and is no longer the active qualification
+path. Do not overlap direct Java commands against the output directory. These /usr/obj directories are build artifacts, not update
+repositories.
+
+Native language tooling update
+-------------------------------
+The package now includes mojo-lsp-server, with 12 passing upstream protocol
+regressions and one upstream-disabled definition test. Nine more CPU
+documentation targets pass, including all three manual decorator examples.
+The six Support configuration tests also pass. A fresh unpack passes language-
+server initialization and all 93 Python cases with rebuilt Python 3.12.15.
+Clean VM lifecycle checks and the fresh end-to-end build remain in progress.
+See README.mojo-tests.5BSD for separate-run counts and remaining gaps.
+
+Package archive verification update (2026-10-09)
+-----------------------------------------------
+An initial repackaging invocation discarded generated plist entries, omitting
+Mojo examples and most JDK files. The procedure now restages and packages
+without deleting that generated list. The corrected archives match every
+staged file: Mojo 26, JDK 519, Python 8029 and Bazel 5. JDK Java registration
+hooks are present. Corrected Mojo examples, CPU counts and both ASan diagnostic
+modes pass. Evidence: package-file-coverage.json, language-tools-package/ and
+openjdk21-complete-manifest-package.log under the validation directory.
+The earlier incomplete archive hashes are retained as failure evidence.
+
+Formatter qualification (2026-10-09)
+-----------------------------------
+The port now includes upstream's pure-Python mblack formatter, resolved by
+`mojo format` inside the private SDK. It uses existing native/noarch Python
+ports rather than downloaded runtime wheels. All five dependency packages
+build and pass stage QA and plist checks without host installation.
+The complete upstream formatter suite passes 1004 tests with two explicit
+upstream skips: one obsolete Click-internal API check and one Python-stub-only
+case. The two broken config-discovery mocks now use real temporary project
+configs and check their effect on formatting. Test-only patches accommodate current Click's
+separate stdout API, enable filesystem tests outside Bazel and restore missing
+file-discovery fixtures/renamed ignore patterns. No formatter algorithm was
+changed. Optional compile-every-sample validation is in progress. The earlier development package passes directory formatting, idempotence, cache selection,
+compilation/execution of formatted Mojo, invalid-input and syntax-error checks.
+Its archive matches every staged file and records all seven direct runtime
+dependencies; stage QA and plist checks pass. This is the development compiler
+package. The independent fresh-source compiler build has now completed.
+Evidence: /usr/obj/mojo-port-validation/2026-10-09/formatter/.
+
+Virtual CPU qualification update (2026-10-09)
+--------------------------------------------
+The four-vCPU/two-domain QEMU `max` run passes all 40 BaseTest and 18 WorkQueue
+tests, but compiling the packaged operators example fails with LLVM's
+"64-bit code requested on a subtarget that doesn't support it" diagnostic.
+The guest reports AuthenticAMD family 6/model 6 alongside long-mode and AVX2
+features. The default synthetic CPU is therefore not qualified. A named
+Haswell-noTSX four-vCPU/two-domain retry is in progress; this changes only the
+test VM, not base, the port's default compilation flags or the host. The full
+package lifecycle and sixteen-vCPU compiler checks remain incomplete.
+Evidence: language-tools-four-cpu-result.json and serial-language-tools-four-cpu.log
+under /usr/obj/mojo-qualification-vm/. Never infer a pass from QEMU exit status
+alone: this failed run shut down cleanly with process status zero.
+
+Fresh package and scope correction (2026-10-09)
+----------------------------------------------
+The independent native compiler build completed all 10278 actions. The fresh
+64-file compiler/language-server/formatter package passes stage QA, plist and
+archive/stage equality checks. Its seven direct runtime dependencies are
+recorded. The llama.cpp bridge is withdrawn: neither its examples nor any
+llama.cpp/GGML dependency is in this package. Extracted-package execution
+checks now pass; clean-VM qualification is tracked separately and remains pending.
+SHA256: 784d2d55c47bbb0c640db3fd348fd56620d0bff8b14e7079f72a0a9b2774e2f0
+Evidence: /usr/obj/mojo-port-validation/2026-10-09/fresh-formatter-record.json

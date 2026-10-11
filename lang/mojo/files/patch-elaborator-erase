@@ -1,0 +1,15 @@
+--- a/Mojo/lib/Elaborator/ParametricElaborator.cpp
++++ b/Mojo/lib/Elaborator/ParametricElaborator.cpp
+@@ -902,9 +902,9 @@
+   auto eraseScopes = [op](ParameterUseDefGraph &graph) mutable {
+     // Erase any regions from the nested scopes that belong either to this op
+     // or under this op.
+-    for (auto &[r, _] : graph.nestedScopes)
+-      if (op->isAncestor(r->getParentOp()))
+-        graph.nestedScopes.erase(r);
++    graph.nestedScopes.remove_if([&](const auto &entry) {
++      return op->isAncestor(entry.first->getParentOp());
++    });
+ 
+     // Do the same for nested decls. These two are somehow not always in sync,
+     // so we have to check both separately.

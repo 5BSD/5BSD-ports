@@ -1,0 +1,261 @@
+Mojo native test coverage audit (2026-10-09)
+=========================================
+
+Verified combined result
+------------------------
+The full native CPU rerun passed 1169 Bazel test targets, with six skipped
+targets and no failures (205 more passing targets than the original CPU
+selection). Nine additional documentation targets and the native LSP target
+also passed in subsequent runs: 1179 passing targets across these runs, with
+the same six top-level skips. Six configuration unittest cases pass separately. The port's Makefile.tests now includes the additional
+native targets: all 35 applicable Support unit suites, all eight AsyncRT unit
+suites, 155 documentation examples, documentation compiler and Support
+regressions, the build-ID shared-library test, and small example/tool tests.
+FreeBSD OS detection and socket layouts have new native tests. The 96 CLI cases
+and 20 documentation-generator cases pass; the 208 integration cases have
+207 passes and one expected failure. See the sections below for remaining
+coverage gaps, including skips inside passing targets and missing AI runtimes.
+
+Scope
+-----
+The earlier 964-pass/6-skip result was the selected native CPU suite, not
+all upstream tests. Inventory covers Mojo, Support and AsyncRT at the pinned
+source revision. Bazel-generated per-file lit targets and aggregate targets
+often execute the same cases; they must not be added as distinct coverage.
+Manual clang-tidy, documentation lint and Python dependency checks are recorded
+separately from runtime/compiler regression tests. MAX's full product test tree
+and LLVM's own complete regression suite have not been qualified.
+
+Gaps found and exercised
+-----------------------
+Only five of the 36 Support C++ unit targets had been selected. The Linux-only
+NIXL fixture is not a native-port requirement; the other 35 can run here.
+All eight AsyncRT unit targets were missing. These cover allocators, async
+values, CPU devices, debugging allocators, timers, type IDs, work queues and
+worker signal stacks. The teaching example's increment/decrement tests were
+also omitted.
+
+The Support compiler regression aggregate passes 26 cases and skips one
+macOS-only case. Its native target omits an unused Crashpad tool dependency.
+The isolated Tracy bridge test also passes, without testing a MAX trace context.
+
+The port lacked a FreeBSD OS-predicate test and FreeBSD socket ABI mirrors.
+The new ABI test uses generated C compiled against local sys/socket.h,
+netinet/in.h and sys/un.h to check five sockaddr types, sa_family_t and
+SO_NOSIGPIPE, including field types/offsets, size and alignment. This closes
+layout coverage, not end-to-end socket I/O qualification.
+
+The original CLI selection omitted 17 of 102 upstream cases. Eleven additional
+cases (eight doc commands plus driver/cache and two missing-main diagnostics)
+need neither MAX nor debugger/formatter tools. The documentation compiler has
+21 regression files; 20 can run without the MAX-dependent mojo_doc.mojo.
+Three KGEN ELF/CPU tests, one CLI code-model test, and one runtime
+object-emission integration test had
+Linux-only requirements despite being applicable to the qualified FreeBSD
+amd64 host. Their original output checks are retained.
+
+The shared-library build-ID regression exposed two problems: a hard-coded
+/bin/bash interpreter, then symbol interposition making the shared library
+report the executable's ID. FreeBSD now uses the upstream hidden visibility
+setting for Support:BinaryID. BufferTest and ContextTest require enabled inline
+C++ assertions; compile those test translation units with -UNDEBUG, like the
+existing AssertStreamTest. Do not remove their death checks.
+
+The documentation C FFI clock example also lacked FreeBSD CLOCK_MONOTONIC=4;
+the native header value was added to the example and its test.
+
+An additional staged-package Python run passes 93 cases with no skips or
+failures: eight importer/path cases and 85 cases across all 12 extension
+example groups. These are separate from the 1169 Bazel target count.
+The reusable target is make test-python-package in lang/mojo. It builds
+upstream extension fixtures with the staged compiler and runs their original
+pytest checks. The verified environment used Python 3.12, pytest 8.2.2 and
+NumPy 2.4.6; newer pytest versions selected by ports are not yet qualified.
+The launcher imports sys into __main__, as the upstream launcher does, before
+pytest starts; omitting that setup caused earlier fixture failures. Original
+failure logs and the corrected results are retained under
+/usr/obj/mojo-port-validation/2026-10-09/python-package-target/ and
+python-harness/. Bazel's FreeBSD pycross dependency selection is still open.
+
+Remaining coverage and capability gaps
+--------------------------------------
+* Python: the two mojo Python unit suites and all 12 extension example
+  suites now pass through the staged-package target (93 cases; see above).
+  Bazel pytest/pycross still lacks native FreeBSD dependency selection.
+  All six Support configuration cases now pass through native unittest and
+  are included in do-test. The Nanobind test rule aliases a prebuilt MAX
+  wheel in the upstream public build; its native extension remains unqualified.
+* Documentation examples: 165 runtime test targets were discovered, plus a
+  Python dependency check. All 161 applicable non-manual CPU examples now pass.
+  Six newly selected examples no longer inherit an unused package-wide MAX
+  dependency; comptime_subexpression.mojo keeps its actual layout dependency.
+  Three notebook targets are GPU-tagged. All three additional manual decorator
+  examples also pass and are explicitly selected. The nine new examples passed
+  both direct compilation/execution and their original Bazel targets.
+  Evidence: additional-cpu-docs-final/ and additional-doc-bazel-tests.log.
+  Native NumPy is represented
+  by a Python provider wrapper, using the same ports test dependency as the
+  standard-library NumPy tests. MAX/GPU examples cannot inherit CPU qualification.
+* Tooling: native LSP passes 12 regression cases; definition.test is disabled
+  upstream (REQUIRES: disabled). The language server is now included in the
+  port. The upstream parse/semantic-check scan also passes all 259 stdlib files;
+  this does not cover docstring code-block checking. A fresh package unpack
+  passes the LSP version and original initialization protocol checks. The
+  upstream-disabled definition test was checked directly and still fails its
+  original expectations.
+  Evidence: native-lsp/. LLDB/debugger, REPL, Jupyter and JavaScript LSP remain
+  unqualified. The isolated VariantTypeNameParser unit test passes; this does
+  not qualify debugger execution. The JavaScript package cannot load because aspect_rules_js asks
+  for an unavailable yq_freebsd_amd64 repository. Its pinned rules_nodejs
+  toolchain table also omits FreeBSD, and the Mocha environment depends on
+  MAX extensibility (a hover case imports Layout). www/node24 exists in ports,
+  but no native Node executable is installed on this validation host. These
+  are distinct harness/runtime gaps, not native LSP test failures. One Jupyter completion test is
+  excluded upstream for a known crash; debugger tests also contain upstream
+  disabled cases. The formatter's regular suite now passes 1004 cases with two
+  upstream skips, and all three original formatter CLI tests pass. Optional
+  source-compilation validation finished with 907 passes, 25 failures and four
+  skips. Failures include incomplete or unsupported source snippets; tests/util.py explicitly documents that many
+  formatter samples cannot compile in isolation. These failures are retained,
+  not counted as formatting-suite passes. Dependency/lint checks remain separate.
+* Runtime update: native FreeBSD domain CPU discovery and thread CPU/memory
+  affinity now pass all 18 WorkQueue cases, including six previously skipped
+  NUMA cases and two previously Linux-only CPU-placement cases. BaseTest passes
+  40 cases, including two new checks for affinity/policy restoration and invalid
+  CPU handling. The host has vm.ndomains=1; physical multi-domain placement,
+  PCI locality and Linux-only allocation-placement bodies remain unqualified.
+  Evidence: /usr/obj/mojo-port-validation/2026-10-09/native-numa/.
+  The full CPU rerun with the native Bazel executable also passed: 1169 targets
+  pass and six skip, with 1120 targets executed. The result includes these
+  runtime changes. Evidence: native-cpu-final/ under the validation directory.
+* Telemetry: five tests are disabled upstream. Active tests use local files or
+  mocks; their success does not cover crash reporting. Crashpad integration is
+  unavailable in this native port and its seven AsyncRT regression files remain
+  unqualified.
+* Build configurations: the optimized build lacks LLVM assertion-only checks.
+  A full assertions/debug build and full ASan/UBSan/TSan configurations remain
+  unqualified. Selected generated-code ASan crash tests already pass, which is
+  narrower coverage. Foreign-OS tests should stay foreign; cross-target and
+  aarch64 execution need their own target qualification.
+* GPU/MAX: three stdlib GPU targets are explicitly excluded; range codegen is
+  incompatible with the source-built compiler. MAX layout integration, C-host
+  parallelism and profiling-context tests need MAX libraries. The Radeon 780M
+  has a working graphics driver, but native Mojo GPU execution/compiler backends
+  and ROCm/HIP are not qualified. Graphics/Vulkan is not a HIP test result.
+* Packaging: native Bazel and JDK packages, staged Mojo package QA and
+  separately unpacked examples/Python/LSP checks pass. The fresh complete
+  ports build and extracted-package checks now pass; clean Mojo VM lifecycle
+  qualification remains pending. The Bazel/JDK VM lifecycle now passes. The first VM
+  retry passed installation/dependency/file checks but hit its 30-minute wall
+  limit during example compilation; this is not a lifecycle pass.
+
+Evidence
+--------
+Original baseline: mojo-cpu-verified-tests.log, cpu-complete-audit.json.
+Inventory: test-inventory.json (generated rule metadata; includes duplicate
+aggregate/per-file and manual checks).
+Audit attempts: mojo-coverage-native-tests.log, mojo-coverage-expanded-tests.log.
+The first broad run had 43 passes and three failures; it also had Python
+analysis errors. Preserve these failures alongside the corrected final run.
+
+AI capability boundary
+----------------------
+This port currently establishes native CPU compilation and Python integration,
+not an operational MAX model server or native GPU kernel execution. The host
+Radeon 780M is on Modular's known-compatible hardware list for supported
+systems, but this machine lacks the required native HIP runtime. GPU compiler
+components, vendor runtime integration and MAX libraries require separate
+qualification. A vector-add/memory-copy test and then a model generating tokens
+are necessary milestones before claiming GPU or language-model support.
+Upstream references checked 2026-10-09:
+ https://mojolang.org/docs/requirements/
+ https://max.modular.com/stable/api/mojo/
+
+A separate inference route already exists in this ports checkout:
+ misc/llama-cpp, using misc/ggml (VULKAN is a default ggml option)
+ misc/ollama (CPU and VULKAN are default backend options)
+These use a different backend path from Mojo/MAX. A separate llama.cpp development build has now run SmolLM2 on the CPU.
+One Vulkan generation and 101 ADD checks passed, but a repeat run failed with
+GPU device loss. Further GPU tests are deferred by the user. See
+README.mojo-hardware.5BSD for evidence and the separate Mojo/MAX limitations.
+No inference port was installed.
+
+Package archive verification update (2026-10-09)
+-----------------------------------------------
+An initial repackaging invocation discarded generated plist entries, omitting
+Mojo examples and most JDK files. The procedure now restages and packages
+without deleting that generated list. The corrected archives match every
+staged file: Mojo 26, JDK 519, Python 8029 and Bazel 5. JDK Java registration
+hooks are present. Corrected Mojo examples, CPU counts and both ASan diagnostic
+modes pass. Evidence: package-file-coverage.json, language-tools-package/ and
+openjdk21-complete-manifest-package.log under the validation directory.
+The earlier incomplete archive hashes are retained as failure evidence.
+
+Two-domain VM and dependency validation (2026-10-09)
+--------------------------------------------------
+The corrected isolated VM fixture now passes all 40 BaseTest and 18 WorkQueue
+cases with vm.ndomains=2, including native affinity save/restore. This extends
+the single-domain host result; it does not qualify physical multi-socket memory
+placement or PCI locality. Packaged example/lifecycle checks remain incomplete;
+the synthetic QEMU max CPU failed code generation, and a named CPU retry is running.
+The initial VM failure was the fixture's executable path; the unchanged test
+passes with its original Support/unittests/BaseTest layout restored.
+
+The Bazel/JDK package audit found GLib selecting ports elfutils despite its
+base ELF headers. devel/glib20 revision 1 now selects base libelf consistently.
+A compiled ELF resource passes listing and byte-for-byte extraction, and its
+DT_NEEDED selects libelf.so.2. Evidence: glib-base-elf/result.json and
+jdk-runtime-dependencies/devel-glib20-base-libelf.log. Offline dependency and
+VM qualification follow separately; these checks do not install host packages.
+
+Formatter CPU coverage (2026-10-09)
+----------------------------------
+The complete direct upstream pytest suite now passes 1004 cases, with two
+upstream skips and zero failures. The 18 previously unconditional filesystem
+skips now run outside Bazel. Current Click needs test-helper API updates;
+the source archive also omitted six discovery fixture files and retained two
+pre-Mojo .py ignore patterns. These are repaired as separate port test patches.
+The two config-discovery mocks now exercise real temporary project configs.
+The remaining skips are an obsolete Click API and a Python-stub-specific case. Optional compiler-validation tests retain their
+four upstream file exclusions and are still running. This count is separate
+from the 1179 Bazel targets qualified across earlier runs.
+Evidence: formatter/unit-tests.{log,xml,json}; failed attempts remain alongside.
+
+Latest dependency and package qualification (2026-10-09, 20:30 UTC)
+----------------------------------------------------------------
+The fresh 64-file Mojo package passes extracted-package examples, CPU-count and
+ASan diagnostics, language-server protocol/Python checks and formatting checks.
+It excludes the withdrawn llama.cpp bridge. The older Haswell VM run completed
+operators and process examples but timed out at 7200 seconds during Python
+compilation; it is not a completed lifecycle pass. A new disposable VM checks
+the fresh package with a small SIMD compile/run, formatter, language-server
+startup, Python module imports, removal and reinstallation. This narrower VM
+check does not replace the physical host's larger examples/Python suite.
+
+The Bazel/JDK retry passes offline native C++/Java/Python actions and package
+removal/reinstallation. Its Bash parser failure came from using byacc while
+skipping the declared Bison build dependency. Rebuilding with Bison fixes it;
+all five upstream command-substitution/parser regression scripts pass. The
+incorrect private Bash build is quarantined outside the ports work directory.
+No new Bash source patch or host installation was needed.
+
+LLDB/mojo-full now builds. The debugger API suite aborts while loading the Mojo
+plugin due to duplicate LLVM command-line registration. A development-only
+linker visibility fix is queued after baseline debugger/Jupyter checks. It is
+not in the packaged port and is not yet qualified.
+
+Evidence: fresh-complete-package/checks.json, bash-parser-tests/result.json,
+/usr/obj/mojo-bazel-jdk-vm/bison-bash-retry-result.json,
+/usr/obj/mojo-qualification-vm/language-tools-haswell-result.json,
+/usr/obj/mojo-fresh-qualification-vm/result.json.
+
+Pending CPU qualification follow-up (2026-10-09)
+-----------------------------------------------
+The first fresh 64-file package VM reached the formatter but the guest test
+used an unsupported `mojo format --check` option. That test-script error is
+preserved under mojo-fresh-qualification-vm/failed-unsupported-check-option/.
+The corrected test compares the result of two formatting passes, and retries
+on a fresh disk overlay with the identical package. Lifecycle remains pending.
+An assertions-enabled full CPU suite is queued in /usr/obj/mojo-assertions-output
+using dbg mode with O2 and LLVM ABI breaking checks. It waits for the current
+debugger prototype and VM checks; queued is not a passing test result.

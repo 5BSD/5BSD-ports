@@ -1,0 +1,189 @@
+Mojo hardware and runtime qualification for 5BSD
+==============================================
+Updated 2026-10-09. The targets include Intel/AMD CPUs, AMD GPU compute,
+and Raspberry Pi 4 and 5 CPUs and VideoCore GPUs. Intel GPU feasibility
+is separate from Intel CPU support. Pi hardware testing is the last step,
+at the user's request; no Pi test machine is available yet.
+
+CPU status
+----------
+The native amd64 Mojo suite covers SIMD, SIMD fast-math, vectorization,
+atomics, ownership, collections, C ABI, Python integration and compiler
+regressions. This is not a claim that every CPU feature is qualified.
+See README.mojo-tests.5BSD for runtime, Python harness, debugger, NUMA,
+sanitizer and other remaining coverage gaps. The current execution host
+is an AMD Ryzen 7 255; Intel hardware has not been exercised separately.
+SIMD tests passing does not establish every AVX-512 or ARM intrinsic.
+
+Pi 4: Cortex-A72; Pi 5: Cortex-A76. Cross-compilation probes emit
+FreeBSD AArch64 objects with scalar addition and four-lane floating-point
+NEON FMA. The probe checks object ABI and disassembly. It does not link
+an ARM64 program or execute one. lang/mojo remains amd64-only until a
+native compiler/runtime build, package validation and test run qualify
+ARM64. Do not infer Pi support from the availability of an LLVM target.
+
+Native Pi qualification must cover the compiler/runtime build with all
+available logical CPUs, platform/ABI checks, standard-library/compiler
+tests, packaged examples, Python interop, NEON execution, installation
+and removal in a disposable environment. Use the ports checkout selected
+with PORTSDIR and /usr/obj for staging. System builds, if needed, use
+/usr/src's maintained targets; this work does not authorize an upgrade
+or reboot. Record each Pi model and the exact base/kernel/firmware versions.
+
+Accelerator dependency boundaries
+--------------------------------
+All GPU paths need a compiler backend, device/runtime bindings, a working
+kernel driver, and user-space libraries. A newer base LLVM or Mesa package
+alone cannot supply all of these pieces.
+
+AMD: upstream Mojo uses HIP (libamdhip64.so). A native ROCm path also
+requires its device compilation/runtime dependencies and kernel compute
+interfaces. This host has amdgpu, Mesa RADV and a Radeon 780M, but no
+installed HIP/HSA runtime or /dev/kfd. No native Mojo GPU test passes yet.
+The source-built Mojo compiler reports no registered accelerators.
+
+Intel: the CPU compiler's x86 backend supports Intel CPU targets. Intel
+integrated and discrete GPUs are both absent from Mojo's documented GPU
+backends. Mesa ANV/Vulkan support for a particular GPU is a separate
+capability. An Intel Mojo GPU path would require new backend/runtime work;
+adding Intel GPU libraries to the CPU port would not enable it.
+
+Pi: Mesa V3D/V3DV supports Pi 4/5 rendering and Vulkan on supported stacks.
+It depends on the V3D kernel DRM driver; VC4 provides display support.
+No V3D implementation was found in the checked-out /usr/src/sys/dev or
+/usr/src/sys/modules, and the current mesa-dri port does not offer V3DV.
+Native kernel-driver integration and a Mojo backend/runtime remain work
+items. Packaging only Mesa's user-space driver would be insufficient.
+
+Other upstream GPU platforms: NVIDIA uses CUDA driver libraries and its
+device compilation backend; Apple uses Metal on macOS. Neither implies
+that the corresponding native 5BSD implementation is present.
+
+MAX library probes
+------------------
+The upstream comptime_subexpression.mojo documentation example compiled
+and ran using the max/mojo and max/kernels/src include paths. This proves
+a CPU Layout use case can work directly from source.
+
+The shared-lib-c-host/test_shared_lib_runtime_init.mojo test compiled as
+a shared object, but dlopen failed with missing
+AsyncRT_DeviceContext_create. Thus compilation alone does not qualify
+MAX parallelism. The checkout imports AsyncRTMojoBindings and libmax
+from upstream platform wheels; their required implementation is not
+available as a native FreeBSD library in this build. No no-op bindings
+or foreign-OS library aliases should be substituted to report a pass.
+
+AMD runtime work is the GPU priority
+-----------------------------------
+The requested integration is native Mojo GPU kernels through AMD's supported
+runtime interfaces, with the required libraries ported to 5BSD. The
+experimental Mojo-to-llama.cpp bridge has been withdrawn from the port at the
+user's request. Standalone llama.cpp/GGML results are separate application
+experiments and do not qualify Mojo, MAX, HIP, HSA, or AMD kernel execution.
+Their logs are preserved under /usr/obj/mojo-port-validation/2026-10-09/.
+
+The remaining chain is Mojo's HIP interface, the HIP runtime, the ROCr/HSA
+runtime and thunk, and native AMD compute-driver support. Compiler support
+libraries and device bitcode also need matching versions. Existing Vulkan
+or amdgpu graphics support does not establish that compute-driver interface.
+GPU execution/retries remain deferred by the user; source and build work may
+continue. Raspberry Pi 4/5 hardware validation remains last.
+
+Existing FreeBSD compute work reviewed (2026-10-09)
+-------------------------------------------------
+The likely CUDA project is https://github.com/NapoleonWils0n/freebsd-cuda.
+It packages Linux applications using Linuxulator/Podman and NVIDIA libraries.
+The separate https://github.com/shkhln/libc6-shim permits limited glibc ABI
+compatibility in native FreeBSD processes. Both are NVIDIA prior art; neither
+establishes AMD HIP support. The current ports tree already contains
+emulators/libc6-shim and science/linux-ai-ml-env. The latter's UVM shim returns
+NV_ERR_NOT_SUPPORTED for UVM initialization and redirects /dev/nvidia-uvm to
+/dev/null. It is not an implementation of GPU queues or AMD's KFD interface.
+
+AMD explicitly requires a host compute driver even for Linux containers:
+https://rocm.docs.amd.com/projects/install-on-linux/en/docs-6.0.0/how-to/docker.html
+Its ROCr thunk opens /dev/kfd and reads KFD topology. Linux compatibility does
+not by itself supply these interfaces. Native runtime porting remains the
+primary path; a Linux ABI path would need its own driver/ABI qualification.
+
+Reusable native work is reported by the FreeBSD project:
+https://www.freebsd.org/status/report-2026-04-2026-06/rocm/
+It links https://github.com/Yohello1/rocm-systems and
+https://github.com/Yohello1/drm-kmod-rocm/tree/super-special.
+The report describes toolchain/runtime changes and partial amdkfd support;
+it does not establish complete driver operation or Radeon 780M qualification.
+Runtime branch to_merge_in at 87ef7d63460c515e7b202d5ea971ebb6fbbf2faa
+contains FreeBSD-specific libhsakmt build changes and is being reviewed.
+Driver branch super-special at f40bce3958fe0c604b6c74f96c3ab637d3a16de6
+is a source-review candidate, not a driver selected for installation.
+The existing drm-6.12.85_3 hardware build source contains an amdkfd Makefile,
+but its amd/Makefile does not enable the amdkfd subdirectory.
+
+Review and qualification order: native thunk/HSA runtime dependencies and
+OS interfaces; matching HIP/CLR and device compiler libraries; compute-driver
+integration against the intended kernel; then device enumeration, allocation,
+copy, queues, events and real Mojo kernels. GPU execution remains deferred.
+No CUDA compatibility experiment has been installed or run on this host.
+
+Initial native thunk configuration stops at the missing libnuma dependency.
+Source review also found incomplete FreeBSD include selection, Linux sysfs
+topology assumptions, unsupported performance counters and an explicit SVM
+ABI TODO in the FreeBSD KFD header. These patches are reusable prior art, not
+a completed ROCm port. Evidence: /usr/obj/mojo-rocm-validation/initial-audit.json.
+
+Native AMD source progress (2026-10-09, 20:30 UTC)
+-----------------------------------------------
+The private source prototype fixes FreeBSD header selection, a missing status
+return in an unsupported counter API, a modern libdrm type collision and the
+ioctl size-field limit. FreeBSD uses a 13-bit size field (8191 bytes); the
+CPU-only bounds test covers the maximum 1020 SVM attributes and the first
+oversized request. Nineteen of twenty thunk translation units pass compiler
+syntax checks using installed dependencies. Supplying the prior NUMA shim
+headers and fixing the same ioctl-size check in fmm.c allows all twenty to
+compile to objects. The shim implementation has not been accepted or linked.
+The object-symbol audit also finds a missing FreeBSD implementation of
+hsakmt_kfdcontext_init_perf_context. These results do not establish a linked
+runtime, kernel ABI qualification or GPU execution.
+Patch and checks: /usr/obj/mojo-rocm-validation/.
+
+The candidate driver contains kfd_freebsd_stubs.c with missing debugger/event
+implementations and empty dispatch tables for several GPU generations. The
+runtime still expects Linux sysfs topology. These are engineering gaps, not
+package dependencies that can be solved just by installing Linux libraries.
+
+The pinned Mojo checkout registers HostTraits, HostLowering and HostBackend;
+accelerator requests explicitly require MAX. This build has no native MAX
+accelerator/compiler integration. HIP/ROCr/KFD porting is necessary but does
+not by itself add the missing Mojo GPU backend. Do not bypass the MAX check
+or substitute no-op bindings as evidence of accelerator support.
+
+Candidate runtime/driver ioctl audit
+------------------------------------
+CPU-only header probes found 38 matching command encodings and one mismatch:
+CREATE_PROCESS is 0xc0084b27 in the runtime but 0x20004b27 in the candidate
+driver. Seven additional runtime commands are absent from the driver header.
+The candidate kfd_chardev.c also has no CREATE_PROCESS handler. The runtime
+expects the secondary-context descriptor through an output structure; blindly
+changing its number to match the driver would not implement that behavior.
+Evidence: /usr/obj/mojo-rocm-validation/kfd-abi/result.json. Matching command
+numbers do not prove structure offsets, kernel behavior or hardware support.
+
+NUMA dependency and newer upstream notes (2026-10-09)
+----------------------------------------------------
+The prior NUMA shim is https://codeberg.org/yohwllo/FreeBSD_libnuma.
+Reviewed tree: b1f1f146860e6f688577097367c138e6b2c327d6. Its mbind implementation
+unconditionally returns success without implementing address-range policy.
+Its source defines num_bitmask_setbit, while its header and ROCr callers use
+numa_bitmask_setbit. It is not a qualified native runtime dependency.
+The source is preserved for review with verified Git blob hashes under
+/usr/obj/mojo-rocm-validation/prior-art/numa-source/; it was not installed.
+Object compilation and unresolved-symbol evidence: thunk-objects/result.json.
+
+The author's August 22 notes describe RDNA3/Radeon 780M driver bring-up and
+partial KFD communication, explicitly still nonfunctional runtime operation:
+https://csclub.uwaterloo.ca/~s23adhik/myPosts/ROCmFreeBSD_pt6.html
+They are a useful newer baseline than the initial runtime-build report, but
+are not evidence of executing HIP or Mojo kernels. Their installation commands
+are not the 5BSD build workflow and have not been executed here. Kernel changes
+must be reviewed against /usr/src and integrated through the maintained build
+and hardware package targets before any separately authorized installation.

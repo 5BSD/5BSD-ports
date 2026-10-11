@@ -1,0 +1,7 @@
+Mojo is a systems programming language with Python-like syntax, value
+semantics, compile-time metaprogramming and LLVM/MLIR code generation.
+
+This downstream 5BSD port builds the compiler and standard library natively
+from a pinned source snapshot. It includes CPU compilation, a language server,
+formatter, native C FFI and Python 3.12 interoperability. Its matching LLVM/MLIR
+implementation remains private to the compiler; no base LLVM upgrade is required.

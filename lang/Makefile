@@ -201,6 +201,7 @@
     SUBDIR += mlkit
     SUBDIR += mlton
     SUBDIR += mmix
+    SUBDIR += mojo
     SUBDIR += mono
     SUBDIR += mono-basic
     SUBDIR += mono5.10

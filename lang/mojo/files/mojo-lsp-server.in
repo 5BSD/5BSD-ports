@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+mojo_sdk=${MODULAR_MOJO_MAX_PACKAGE_ROOT:-%%PREFIX%%/libexec/mojo}
+export MODULAR_MOJO_MAX_PACKAGE_ROOT=$mojo_sdk
+export MODULAR_MOJO_MAX_DRIVER_PATH=$mojo_sdk/bin/mojo
+export MODULAR_MOJO_MAX_IMPORT_PATH=${MODULAR_MOJO_MAX_IMPORT_PATH:-$mojo_sdk/lib/mojo}
+export MODULAR_MOJO_MAX_LINKER_DRIVER=${MODULAR_MOJO_MAX_LINKER_DRIVER:-/usr/bin/clang}
+export MODULAR_TELEMETRY_ENABLED=${MODULAR_TELEMETRY_ENABLED:-0}
+export MODULAR_CRASH_REPORTING_ENABLED=0
+export MOJO_PYTHON=${MOJO_PYTHON:-%%PYTHON_CMD%%}
+exec "$mojo_sdk/bin/mojo-lsp-server" "$@"

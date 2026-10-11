@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+mblack_sdk=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
+export PYTHONPATH="$mblack_sdk/lib/mblack${PYTHONPATH:+:$PYTHONPATH}"
+exec "${MOJO_PYTHON:-%%PYTHON_CMD%%}" -m mblack "$@"

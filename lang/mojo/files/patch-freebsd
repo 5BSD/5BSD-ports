@@ -1,0 +1,4488 @@
+diff --git a/AsyncRT/lib/Runtime/Globals/Globals.cpp b/AsyncRT/lib/Runtime/Globals/Globals.cpp
+index 503e13d..54bd1a2 100644
+--- a/AsyncRT/lib/Runtime/Globals/Globals.cpp
++++ b/AsyncRT/lib/Runtime/Globals/Globals.cpp
+@@ -13,7 +13,9 @@
+ 
+ // NOTE: We use the legacy tcmalloc on macOS only because the modern tcmalloc
+ // doesn't support it
+-#if defined(__APPLE__)
++#if defined(__FreeBSD__)
++#include "Support/AlignedAlloc.h"
++#elif defined(__APPLE__)
+ #include <gperftools/tcmalloc.h>
+ #else
+ #pragma GCC diagnostic push
+@@ -49,7 +51,9 @@ M::AsyncRT::Globals::getCPUDeviceTableSingleton(
+ 
+ MODULAR_CXX_EXPORT void *TCMallocGlobals::tc_new(size_t alignment,
+                                                  size_t size) {
+-#if defined(__APPLE__)
++#if defined(__FreeBSD__)
++  return M::alignedAlloc(alignment, size);
++#elif defined(__APPLE__)
+   return ::tc_memalign(alignment, size);
+ #else
+   return TCMallocInternalMemalign(alignment, size);
+@@ -57,7 +61,10 @@ MODULAR_CXX_EXPORT void *TCMallocGlobals::tc_new(size_t alignment,
+ }
+ MODULAR_CXX_EXPORT void *TCMallocGlobals::tc_new(size_t alignment, size_t size,
+                                                  size_t numaPartition) {
+-#if defined(__APPLE__)
++#if defined(__FreeBSD__)
++  // Native allocator fallback has no TCMalloc NUMA partition support.
++  return M::alignedAlloc(alignment, size);
++#elif defined(__APPLE__)
+   // gperftools has no NUMA partition support; fall back to unpartitioned alloc.
+   return ::tc_memalign(alignment, size);
+ #else
+@@ -65,7 +72,9 @@ MODULAR_CXX_EXPORT void *TCMallocGlobals::tc_new(size_t alignment, size_t size,
+ #endif
+ }
+ MODULAR_CXX_EXPORT void TCMallocGlobals::tc_delete(void *ptr) {
+-#if defined(__APPLE__)
++#if defined(__FreeBSD__)
++  return M::alignedFree(ptr);
++#elif defined(__APPLE__)
+   return ::tc_free(ptr);
+ #else
+   return TCMallocInternalFree(ptr);
+diff --git a/AsyncRT/unittests/WorkQueueTest.cpp b/AsyncRT/unittests/WorkQueueTest.cpp
+index 83866b4..6b14053 100644
+--- a/AsyncRT/unittests/WorkQueueTest.cpp
++++ b/AsyncRT/unittests/WorkQueueTest.cpp
+@@ -29,7 +29,7 @@
+ #include <unordered_map>
+ #include <vector>
+ 
+-#if defined(__linux__)
++#if defined(__linux__) || defined(__FreeBSD__)
+ #include <sched.h>
+ #endif
+ 
+@@ -390,7 +390,7 @@ TEST(WorkQueueTest, PartitionedParallelismMatchesCpuIds) {
+             h.workQueue->getCpuIds().size());
+ }
+ 
+-#if defined(__linux__)
++#if defined(__linux__) || defined(__FreeBSD__)
+ TEST(WorkQueueTest, PartitionedRunsOnlyOnSelectedCpus) {
+   std::optional<int> nodeOr = firstUsableNumaNode();
+   if (!nodeOr)
+@@ -551,7 +551,7 @@ TEST(WorkQueueTest, DelegateNUMAWorkerRouting) {
+     p->shutdown();
+ }
+ 
+-#if defined(__linux__)
++#if defined(__linux__) || defined(__FreeBSD__)
+ /// Verifies that each worker in a DelegateThreadPoolWorkQueue runs on exactly
+ /// the CPU at its local-index position within its partition's CPU list,
+ /// regardless of whether those CPU IDs are contiguous.
+diff --git a/BUILD.bazel b/BUILD.bazel
+index 314af24..4fc3f71 100644
+--- a/BUILD.bazel
++++ b/BUILD.bazel
+@@ -159,6 +159,22 @@ config_setting(
+     ]
+ ]
+ 
++config_setting(
++    name = "freebsd_x86_64",
++    constraint_values = [
++        "@platforms//cpu:x86_64",
++        "@platforms//os:freebsd",
++    ],
++)
++
++config_setting(
++    name = "freebsd_aarch64",
++    constraint_values = [
++        "@platforms//cpu:aarch64",
++        "@platforms//os:freebsd",
++    ],
++)
++
+ config_setting(
+     name = "linux_x86_64",
+     constraint_values = [
+diff --git a/MODULE.bazel b/MODULE.bazel
+index fd9f89b..d1c33be 100644
+--- a/MODULE.bazel
++++ b/MODULE.bazel
+@@ -43,3 +43,15 @@ use_repo(llvm_configure, "llvm-project")
+ cfg_workaround = use_repo_rule("//bazel/internal:cfg_workaround.bzl", "cfg_workaround")
+ 
+ cfg_workaround(name = "cfg_workaround.bzl")
++
++# Native FreeBSD build tools. Other Python versions are not qualified here.
++native_python_repo = use_repo_rule("@rules_python//python/local_toolchains:repos.bzl", "local_runtime_repo")
++native_python_repo(name = "freebsd_python", interpreter_path = "/usr/local/bin/python3.12")
++native_python_toolchains = use_repo_rule("@rules_python//python/local_toolchains:repos.bzl", "local_runtime_toolchains_repo")
++native_python_toolchains(
++    name = "freebsd_python_toolchains",
++    runtimes = ["freebsd_python"],
++    exec_compatible_with = {"freebsd_python": ["@platforms//os:freebsd"]},
++    target_compatible_with = {"freebsd_python": ["@platforms//os:freebsd"]},
++)
++register_toolchains("@freebsd_python_toolchains//:all")
+diff --git a/Mojo/BUILD.bazel b/Mojo/BUILD.bazel
+index 69e0e0e..457568f 100644
+--- a/Mojo/BUILD.bazel
++++ b/Mojo/BUILD.bazel
+@@ -1009,6 +1009,10 @@ modular_shared_library(
+         "//AsyncRT:alloc_logging_setting": ["MODULAR_ALLOC_LOGGING=1"],
+         "//conditions:default": ["MODULAR_ALLOC_LOGGING=0"],
+     }),
++    linkopts = select({
++        "@platforms//os:freebsd": ["-Wl,-soname,libKGENCompilerRTShared.so"],
++        "//conditions:default": [],
++    }),
+     output_name = "KGENCompilerRTShared",
+     visibility = [
+         "//Mojo:consumers",
+diff --git a/Mojo/docs/site/code/manual/basics/BUILD.bazel b/Mojo/docs/site/code/manual/basics/BUILD.bazel
+index 8cc86f1..bc36952 100644
+--- a/Mojo/docs/site/code/manual/basics/BUILD.bazel
++++ b/Mojo/docs/site/code/manual/basics/BUILD.bazel
+@@ -1,4 +1,4 @@
+-load("//bazel:api.bzl", "modular_run_binary_test", "mojo_binary", "requirement")
++load("//bazel:api.bzl", "modular_run_binary_test", "mojo_binary")
+ 
+ package(default_visibility = ["//oss/modular/docs:__subpackages__"])
+ 
+@@ -10,7 +10,7 @@ MOJO_SRCS = glob(["*.mojo"])
+         srcs = [src],
+         deps = [
+             "@mojo//:std",
+-            requirement("numpy"),
++            "//bazel/pip:native_numpy",
+         ],
+     )
+     for src in MOJO_SRCS
+diff --git a/Mojo/docs/site/code/manual/c-ffi/test_call_libc.mojo b/Mojo/docs/site/code/manual/c-ffi/test_call_libc.mojo
+index 3130ea7..5a2e772 100644
+--- a/Mojo/docs/site/code/manual/c-ffi/test_call_libc.mojo
++++ b/Mojo/docs/site/code/manual/c-ffi/test_call_libc.mojo
+@@ -48,7 +48,7 @@ def test_rand() raises:
+ struct CTimeSpec(RegisterPassable):  # Matches C's struct timespec.
+     # CLOCK_MONOTONIC differs by platform
+     comptime monotonic = c_int(
+-        platform_map["CLOCK_MONOTONIC", linux=1, macos=6]()
++        platform_map["CLOCK_MONOTONIC", linux=1, macos=6, freebsd=4]()
+     )
+ 
+     var tv_sec: c_long
+diff --git a/Mojo/docs/site/code/manual/pointers/using-pointers/BUILD.bazel b/Mojo/docs/site/code/manual/pointers/using-pointers/BUILD.bazel
+index 8cc86f1..bc36952 100644
+--- a/Mojo/docs/site/code/manual/pointers/using-pointers/BUILD.bazel
++++ b/Mojo/docs/site/code/manual/pointers/using-pointers/BUILD.bazel
+@@ -1,4 +1,4 @@
+-load("//bazel:api.bzl", "modular_run_binary_test", "mojo_binary", "requirement")
++load("//bazel:api.bzl", "modular_run_binary_test", "mojo_binary")
+ 
+ package(default_visibility = ["//oss/modular/docs:__subpackages__"])
+ 
+@@ -10,7 +10,7 @@ MOJO_SRCS = glob(["*.mojo"])
+         srcs = [src],
+         deps = [
+             "@mojo//:std",
+-            requirement("numpy"),
++            "//bazel/pip:native_numpy",
+         ],
+     )
+     for src in MOJO_SRCS
+diff --git a/Mojo/docs/site/code/manual/quickstart/BUILD.bazel b/Mojo/docs/site/code/manual/quickstart/BUILD.bazel
+index 8d89101..ed64b1d 100644
+--- a/Mojo/docs/site/code/manual/quickstart/BUILD.bazel
++++ b/Mojo/docs/site/code/manual/quickstart/BUILD.bazel
+@@ -1,4 +1,4 @@
+-load("//bazel:api.bzl", "modular_run_binary_test", "mojo_binary", "requirement")
++load("//bazel:api.bzl", "modular_run_binary_test", "mojo_binary")
+ 
+ package(default_visibility = ["//oss/modular/docs:__subpackages__"])
+ 
+@@ -10,7 +10,7 @@ MOJO_SRCS = glob(["*.mojo"])
+         srcs = [src],
+         deps = [
+             "@mojo//:std",
+-            requirement("numpy"),
++            "//bazel/pip:native_numpy",
+         ],
+     )
+     for src in MOJO_SRCS
+diff --git a/Mojo/docs/site/manual/c-ffi.mdx b/Mojo/docs/site/manual/c-ffi.mdx
+index 55e6784..c9ae9c9 100644
+--- a/Mojo/docs/site/manual/c-ffi.mdx
++++ b/Mojo/docs/site/manual/c-ffi.mdx
+@@ -308,7 +308,7 @@ from std.sys.info import platform_map
+ struct CTimeSpec(RegisterPassable):  # Matches C's struct timespec.
+     # CLOCK_MONOTONIC differs by platform
+     comptime monotonic = c_int(
+-        platform_map["CLOCK_MONOTONIC", linux=1, macos=6]()
++        platform_map["CLOCK_MONOTONIC", linux=1, macos=6, freebsd=4]()
+     )
+ 
+     var tv_sec: c_long
+diff --git a/Mojo/include/Mojo/Support/MojoPrecompiledFile.h b/Mojo/include/Mojo/Support/MojoPrecompiledFile.h
+index 092f23f..fe445e7 100644
+--- a/Mojo/include/Mojo/Support/MojoPrecompiledFile.h
++++ b/Mojo/include/Mojo/Support/MojoPrecompiledFile.h
+@@ -44,10 +44,10 @@ struct MojoPrecompiledFileVersion final {
+ 
+   MojoPrecompiledFileVersion() = default;
+   MojoPrecompiledFileVersion(int maj, int min, int pat)
+-      : major(maj), minor(min), patch(pat) {}
++      : major{maj}, minor{min}, patch(pat) {}
+ 
+   MojoPrecompiledFileVersion(const M::ProjectVersion &version)
+-      : major(version.major), minor(version.minor), patch(version.patch),
++      : major{version.major}, minor{version.minor}, patch(version.patch),
+         label(version.label) {
+     if (!(hasValidLabel = parseLabel())) {
+       // Reset the parsed label fields on error
+diff --git a/Mojo/lib/Compiler/KGENCompiler.cpp b/Mojo/lib/Compiler/KGENCompiler.cpp
+index 793c0d5..cc6f180 100644
+--- a/Mojo/lib/Compiler/KGENCompiler.cpp
++++ b/Mojo/lib/Compiler/KGENCompiler.cpp
+@@ -515,11 +515,12 @@ static ErrorOr<CrossDeviceFunction> compileElaboratorAsm(
+     const SymbolTable &symtab, TargetInfoAttr target, EmitAs emissionKind,
+     EmissionOptions emissionOptions, CompilationOptions compilationOptions,
+     ElaborateGeneratorsOptions elaboratorOptions) {
+-  DEFINE_OR_RETURN_ERROR(
+-      CompiledStandaloneKernel, compiled,
+-      compileStandaloneKernel(func, symbol, name, symtab, target, emissionKind,
+-                              emissionOptions, compilationOptions,
+-                              elaboratorOptions));
++  auto compiledOr = compileStandaloneKernel(
++      func, symbol, name, symtab, target, emissionKind, emissionOptions,
++      compilationOptions, elaboratorOptions);
++  if (compiledOr.isError())
++    return compiledOr.takeError();
++  CompiledStandaloneKernel compiled = compiledOr.takeValue();
+   return CrossDeviceFunction{compiled.contents, compiled.numCaptures,
+                              std::move(compiled.capturesFunc)};
+ }
+@@ -552,11 +553,12 @@ compileElaboratorKernel(GeneratorOp func, SymbolConstantAttr symbol,
+   mlir::DenseI64ArrayAttr captureSizes;
+   OwningOpRef<Operation *> capturesFunc;
+   for (auto [index, kind] : llvm::enumerate(kinds)) {
+-    DEFINE_OR_RETURN_ERROR(
+-        CompiledStandaloneKernel, compiled,
+-        compileStandaloneKernel(func, symbol, name, symtab, target, kind,
+-                                emissionOptions, compilationOptions,
+-                                elaboratorOptions));
++    auto compiledOr = compileStandaloneKernel(
++        func, symbol, name, symtab, target, kind, emissionOptions,
++        compilationOptions, elaboratorOptions);
++    if (compiledOr.isError())
++      return compiledOr.takeError();
++    CompiledStandaloneKernel compiled = compiledOr.takeValue();
+     contents.insert({kind, compiled.contents});
+     moduleNames.insert({kind, getXXH3Hash(compiled.contents)});
+     if (index == 0) {
+@@ -829,9 +831,10 @@ static ElaboratorCompileOffloadRetType compileOffloads(
+ 
+       // Backends owning offload lowering left through the per-kernel branch
+       // above, so everything reaching here needs an LLVM TargetMachine.
+-      DEFINE_OR_RETURN_ERROR(std::unique_ptr<llvm::TargetMachine>, tm,
+-                             createTargetMachine(compilationOptions,
+-                                                 /*isJIT=*/false));
++      auto tmOr = createTargetMachine(compilationOptions, /*isJIT=*/false);
++      if (tmOr.isError())
++        return tmOr.takeError();
++      std::unique_ptr<llvm::TargetMachine> tm = tmOr.takeValue();
+ 
+       // Run elaboration through to the end of the optimization pipeline.
+       // The scope comes before the pass manager in this declaration. Thus
+diff --git a/Mojo/lib/CompilerRT/Python.cpp b/Mojo/lib/CompilerRT/Python.cpp
+index d9f7129..2a7208b 100644
+--- a/Mojo/lib/CompilerRT/Python.cpp
++++ b/Mojo/lib/CompilerRT/Python.cpp
+@@ -77,6 +77,11 @@ KGEN_CompilerRT_Python_SetPythonPath() {
+     auto pythonBinErr = findProgramByName("python3");
+     if (!pythonBinErr)
+       pythonBinErr = findProgramByName("python");
++#ifdef __FreeBSD__
++    // Ports installs a versioned interpreter even without the python3 meta-port.
++    if (!pythonBinErr)
++      pythonBinErr = findProgramByName("python3.12");
++#endif
+     if (pythonBinErr)
+       pythonBin = *pythonBinErr;
+   }
+diff --git a/Mojo/lib/ToolCommon/PassManagerConfigOptions.cpp b/Mojo/lib/ToolCommon/PassManagerConfigOptions.cpp
+index 413d4a0..740f0bb 100644
+--- a/Mojo/lib/ToolCommon/PassManagerConfigOptions.cpp
++++ b/Mojo/lib/ToolCommon/PassManagerConfigOptions.cpp
+@@ -16,10 +16,31 @@
+ #include "Support/Compiler/TimeProfilerTimingManager.h"
+ #include "Support/Config.h"
+ #include "mlir/Pass/Pass.h"
++#include "mlir/Pass/PassInstrumentation.h"
++#include <atomic>
++#include <cstdint>
+ 
+ using namespace M;
+ using namespace KGEN;
+ 
++namespace {
++// MLIR keys pass timers by the pass object's address. Sequential pass managers
++// can reuse those addresses, so sharing one root directly merges unrelated
++// passes and loses their names. Give each manager a distinct, hidden parent.
++// The instrumentation keeps that scope alive until its pass manager is done.
++class PassManagerTimingScope final : public mlir::PassInstrumentation {
++public:
++  explicit PassManagerTimingScope(mlir::TimingScope &parent) {
++    static std::atomic<uint64_t> nextScope{0};
++    scope = parent.nest("Pass manager " + std::to_string(
++        nextScope.fetch_add(1, std::memory_order_relaxed)));
++    scope.hide();
++  }
++
++  mlir::TimingScope scope;
++};
++} // namespace
++
+ ErrorOrSuccess
+ PassManagerConfigOptions::configurePassManager(mlir::PassManager &pm) const {
+   M::configurePassManager(pm);
+@@ -29,9 +50,12 @@ PassManagerConfigOptions::configurePassManager(mlir::PassManager &pm) const {
+       return Error("applyPassManagerCLOptions failed during configuring");
+   }
+ 
+-  if (timingScope)
+-    pm.enableTiming(*timingScope);
+-  else if constexpr (KGEN::kIsTracingEnabled)
++  if (timingScope) {
++    auto owner = std::make_unique<PassManagerTimingScope>(*timingScope);
++    auto &scope = owner->scope;
++    pm.addInstrumentation(std::move(owner));
++    pm.enableTiming(scope);
++  } else if constexpr (KGEN::kIsTracingEnabled)
+     pm.enableTiming(std::make_unique<TimeProfilerTimingManager>());
+   else if (enableTiming)
+     pm.enableTiming();
+diff --git a/Mojo/python/mojo/_package_root.py b/Mojo/python/mojo/_package_root.py
+index 50cf012..22eb0c7 100644
+--- a/Mojo/python/mojo/_package_root.py
++++ b/Mojo/python/mojo/_package_root.py
+@@ -15,6 +15,7 @@ from __future__ import annotations
+ 
+ import logging
+ import os
++import sys
+ from pathlib import Path
+ 
+ 
+@@ -42,7 +43,12 @@ def get_package_root() -> Path | None:
+     # conda_root / bin / mojo should exist in both cases here, but when using
+     # wheels this is just a generated wrapper script, which we shouldn't call
+     # from here since we'd end up in an infinite loop.
+-    for root in (wheel_root, conda_root):
++    roots = [wheel_root]
++    if sys.platform.startswith("freebsd"):
++        # FreeBSD ports keep this SDK's libraries private to the compiler.
++        roots.append(conda_root / "libexec" / "mojo")
++    roots.append(conda_root)
++    for root in roots:
+         if (root / "bin/mojo").exists():
+             logging.debug(f"Located Modular SDK assets at {root}")
+             return root
+diff --git a/Mojo/stdlib/std/ffi/__init__.mojo b/Mojo/stdlib/std/ffi/__init__.mojo
+index cfef0ed..8249739 100644
+--- a/Mojo/stdlib/std/ffi/__init__.mojo
++++ b/Mojo/stdlib/std/ffi/__init__.mojo
+@@ -129,7 +129,7 @@ comptime c_float = Float32
+ comptime c_double = Float64
+ """C `double` type."""
+ 
+-comptime c_pid_t = Int
++comptime c_pid_t = c_int if CompilationTarget.is_freebsd() else Int
+ """C `pid_t` type."""
+ 
+ comptime MAX_PATH = _get_max_path()
+@@ -139,7 +139,7 @@ comptime MAX_PATH = _get_max_path()
+ def _get_max_path() -> Int:
+     comptime if CompilationTarget.is_linux():
+         return 4096
+-    elif CompilationTarget.is_macos():
++    elif CompilationTarget.is_macos() or CompilationTarget.is_freebsd():
+         return 1024
+     # Default POSIX limit
+     else:
+@@ -160,7 +160,9 @@ def _c_long_dtype[unsigned: Bool = False]() -> DType:
+     # https://en.wikipedia.org/wiki/64-bit_computing#64-bit_data_models
+ 
+     comptime if is_64bit() and (
+-        CompilationTarget.is_macos() or CompilationTarget.is_linux()
++        CompilationTarget.is_macos()
++        or CompilationTarget.is_linux()
++        or CompilationTarget.is_freebsd()
+     ):
+         # LP64: long is 64-bit on 64-bit systems (e.g. x86_64 or aarch64)
+         return DType.uint64 if unsigned else DType.int64
+@@ -194,13 +196,25 @@ struct RTLD:
+     """
+     comptime NOW = 2
+     """Load library immediately (resolve all symbols on load)."""
+-    comptime LOCAL = 0 if CompilationTarget.is_linux() else 4
++    comptime LOCAL = (
++        0
++        if CompilationTarget.is_linux() or CompilationTarget.is_freebsd()
++        else 4
++    )
+     """Make symbols not available for symbol resolution of subsequently loaded
+     libraries."""
+-    comptime GLOBAL = 256 if CompilationTarget.is_linux() else 8
++    comptime GLOBAL = (
++        256
++        if CompilationTarget.is_linux() or CompilationTarget.is_freebsd()
++        else 8
++    )
+     """Make symbols available for symbol resolution of subsequently loaded
+     libraries."""
+-    comptime NODELETE = 4096 if CompilationTarget.is_linux() else 128
++    comptime NODELETE = (
++        4096
++        if CompilationTarget.is_linux() or CompilationTarget.is_freebsd()
++        else 128
++    )
+     """Do not delete the library when the process exits."""
+ 
+ 
+diff --git a/Mojo/stdlib/std/io/file.mojo b/Mojo/stdlib/std/io/file.mojo
+index 4e0513b..1362b48 100644
+--- a/Mojo/stdlib/std/io/file.mojo
++++ b/Mojo/stdlib/std/io/file.mojo
+@@ -55,20 +55,18 @@ comptime O_RDWR = 0x0002
+ """Open file for reading and writing."""
+ 
+ # File creation flags
+-comptime O_CREAT = platform_map[T=Int, "O_CREAT", linux=0x0040, macos=0x0200]()
++comptime O_CREAT = platform_map[T=Int, "O_CREAT", linux=0x0040, macos=0x0200, freebsd=512]()
+ """Create file if it doesn't exist."""
+ 
+-comptime O_TRUNC = platform_map[T=Int, "O_TRUNC", linux=0x0200, macos=0x0400]()
++comptime O_TRUNC = platform_map[T=Int, "O_TRUNC", linux=0x0200, macos=0x0400, freebsd=1024]()
+ """Truncate file to zero length."""
+ 
+ comptime O_APPEND = platform_map[
+-    T=Int, "O_APPEND", linux=0x0400, macos=0x0008
+-]()
++    T=Int, "O_APPEND", linux=0x0400, macos=0x0008, freebsd=8]()
+ """Append mode: writes always go to end of file."""
+ 
+ comptime O_CLOEXEC = platform_map[
+-    T=Int, "O_CLOEXEC", linux=0x80000, macos=0x1000000
+-]()
++    T=Int, "O_CLOEXEC", linux=0x80000, macos=0x1000000, freebsd=1048576]()
+ """Close file descriptor on exec."""
+ 
+ # ===----------------------------------------------------------------------=== #
+diff --git a/Mojo/stdlib/std/io/file_descriptor.mojo b/Mojo/stdlib/std/io/file_descriptor.mojo
+index f80c71f..7915711 100644
+--- a/Mojo/stdlib/std/io/file_descriptor.mojo
++++ b/Mojo/stdlib/std/io/file_descriptor.mojo
+@@ -112,7 +112,9 @@ struct FileDescriptor(TrivialRegisterPassable, Writer):
+         ), "`read_bytes()` is not yet implemented for GPUs."
+ 
+         comptime assert (
+-            CompilationTarget.is_macos() or CompilationTarget.is_linux()
++            CompilationTarget.is_macos()
++            or CompilationTarget.is_linux()
++            or CompilationTarget.is_freebsd()
+         ), "`read_bytes()` is not yet implemented for unknown platform."
+         var read = external_call["read", c_ssize_t](
+             self.value, buffer.unsafe_ptr(), len(buffer)
+diff --git a/Mojo/stdlib/std/net/_sys/inet.mojo b/Mojo/stdlib/std/net/_sys/inet.mojo
+index 5561e00..8b1aafb 100644
+--- a/Mojo/stdlib/std/net/_sys/inet.mojo
++++ b/Mojo/stdlib/std/net/_sys/inet.mojo
+@@ -10,7 +10,7 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ # ===----------------------------------------------------------------------=== #
+-"""Internet types and constants from `<netinet/in.h>` shared by Linux and macOS.
++"""Internet types and constants from `<netinet/in.h>` shared by Linux, macOS and FreeBSD.
+ 
+ The constants are IANA-assigned or wire-format values, identical everywhere.
+ The struct mirrors are the shared POSIX layouts.
+diff --git a/Mojo/stdlib/std/net/_sys/unix.mojo b/Mojo/stdlib/std/net/_sys/unix.mojo
+index 872e8fe..3177a13 100644
+--- a/Mojo/stdlib/std/net/_sys/unix.mojo
++++ b/Mojo/stdlib/std/net/_sys/unix.mojo
+@@ -10,13 +10,12 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ # ===----------------------------------------------------------------------=== #
+-"""Socket constants and types shared by the Unix platforms, Linux and macOS.
++"""Socket constants and types shared by the Unix platforms, Linux, macOS and FreeBSD.
+ 
+ The values are transcribed from `<sys/socket.h>`, `<netinet/tcp.h>`, and
+-`<fcntl.h>`. Every name here is defined on both platforms. A value they
++`<fcntl.h>`. Every name here is defined on all three platforms. A value they
+ share is a plain literal, and one that differs resolves for the compilation
+-target, so using it on any other target is a compile error. Names that only
+-one platform defines live in `linux` or `macos`.
++target, so using it on any other target is a compile error. Names specific to Linux or macOS live in `linux` or `macos`.
+ """
+ 
+ from std.ffi import c_int, c_uint
+@@ -26,8 +25,11 @@ comptime socklen_t = c_uint
+ """C `socklen_t`: the size of a socket address or option value, in bytes."""
+ 
+ 
+-def constant[name: StaticString, *, linux: c_int, macos: c_int]() -> c_int:
+-    return platform_map[T=c_int, String(name), linux=linux, macos=macos]()
++def constant[
++    name: StaticString, *, linux: c_int, macos: c_int,
++    freebsd: Optional[c_int] = None,
++]() -> c_int:
++    return platform_map[T=c_int, String(name), linux=linux, macos=macos, freebsd=freebsd]()
+ 
+ 
+ # ===----------------------------------------------------------------------=== #
+@@ -40,7 +42,7 @@ comptime AF_UNIX: c_int = 1
+ """Unix domain (local) sockets."""
+ comptime AF_INET: c_int = 2
+ """IPv4 internet protocols."""
+-comptime AF_INET6: c_int = constant["AF_INET6", linux=10, macos=30]()
++comptime AF_INET6: c_int = constant["AF_INET6", linux=10, macos=30, freebsd=Optional[c_int](28)]()
+ """IPv6 internet protocols."""
+ 
+ # ===----------------------------------------------------------------------=== #
+@@ -60,46 +62,43 @@ comptime SOCK_SEQPACKET: c_int = 5
+ # Socket option level and names
+ # ===----------------------------------------------------------------------=== #
+ 
+-comptime SOL_SOCKET: c_int = constant["SOL_SOCKET", linux=1, macos=0xFFFF]()
++comptime SOL_SOCKET: c_int = constant["SOL_SOCKET", linux=1, macos=0xFFFF, freebsd=Optional[c_int](65535)]()
+ """Option level for socket-level options."""
+ comptime SO_DEBUG: c_int = 1
+ """Enable socket debugging."""
+-comptime SO_REUSEADDR: c_int = constant["SO_REUSEADDR", linux=2, macos=0x0004]()
++comptime SO_REUSEADDR: c_int = constant["SO_REUSEADDR", linux=2, macos=0x0004, freebsd=Optional[c_int](4)]()
+ """Allow reuse of local addresses."""
+-comptime SO_TYPE: c_int = constant["SO_TYPE", linux=3, macos=0x1008]()
++comptime SO_TYPE: c_int = constant["SO_TYPE", linux=3, macos=0x1008, freebsd=Optional[c_int](4104)]()
+ """Get the socket type (read-only)."""
+-comptime SO_ERROR: c_int = constant["SO_ERROR", linux=4, macos=0x1007]()
++comptime SO_ERROR: c_int = constant["SO_ERROR", linux=4, macos=0x1007, freebsd=Optional[c_int](4103)]()
+ """Get and clear the pending socket error (read-only)."""
+-comptime SO_DONTROUTE: c_int = constant["SO_DONTROUTE", linux=5, macos=0x0010]()
++comptime SO_DONTROUTE: c_int = constant["SO_DONTROUTE", linux=5, macos=0x0010, freebsd=Optional[c_int](16)]()
+ """Bypass routing; send directly to the interface."""
+-comptime SO_BROADCAST: c_int = constant["SO_BROADCAST", linux=6, macos=0x0020]()
++comptime SO_BROADCAST: c_int = constant["SO_BROADCAST", linux=6, macos=0x0020, freebsd=Optional[c_int](32)]()
+ """Permit sending broadcast datagrams."""
+-comptime SO_SNDBUF: c_int = constant["SO_SNDBUF", linux=7, macos=0x1001]()
++comptime SO_SNDBUF: c_int = constant["SO_SNDBUF", linux=7, macos=0x1001, freebsd=Optional[c_int](4097)]()
+ """Send buffer size."""
+-comptime SO_RCVBUF: c_int = constant["SO_RCVBUF", linux=8, macos=0x1002]()
++comptime SO_RCVBUF: c_int = constant["SO_RCVBUF", linux=8, macos=0x1002, freebsd=Optional[c_int](4098)]()
+ """Receive buffer size."""
+-comptime SO_KEEPALIVE: c_int = constant["SO_KEEPALIVE", linux=9, macos=0x0008]()
++comptime SO_KEEPALIVE: c_int = constant["SO_KEEPALIVE", linux=9, macos=0x0008, freebsd=Optional[c_int](8)]()
+ """Enable keep-alive probes on connection-oriented sockets."""
+ comptime SO_OOBINLINE: c_int = constant[
+-    "SO_OOBINLINE", linux=10, macos=0x0100
+-]()
++    "SO_OOBINLINE", linux=10, macos=0x0100, freebsd=Optional[c_int](256)]()
+ """Leave received out-of-band data in the normal stream."""
+-comptime SO_LINGER: c_int = constant["SO_LINGER", linux=13, macos=0x0080]()
++comptime SO_LINGER: c_int = constant["SO_LINGER", linux=13, macos=0x0080, freebsd=Optional[c_int](128)]()
+ """Linger on close if unsent data is present (takes `struct linger`).
+ 
+ macOS measures this option's timeout in clock ticks, not seconds.
+ """
+ comptime SO_REUSEPORT: c_int = constant[
+-    "SO_REUSEPORT", linux=15, macos=0x0200
+-]()
++    "SO_REUSEPORT", linux=15, macos=0x0200, freebsd=Optional[c_int](512)]()
+ """Allow multiple sockets to bind the same address and port."""
+-comptime SO_RCVTIMEO: c_int = constant["SO_RCVTIMEO", linux=20, macos=0x1006]()
++comptime SO_RCVTIMEO: c_int = constant["SO_RCVTIMEO", linux=20, macos=0x1006, freebsd=Optional[c_int](4102)]()
+ """Receive timeout (takes `struct timeval`)."""
+-comptime SO_SNDTIMEO: c_int = constant["SO_SNDTIMEO", linux=21, macos=0x1005]()
++comptime SO_SNDTIMEO: c_int = constant["SO_SNDTIMEO", linux=21, macos=0x1005, freebsd=Optional[c_int](4101)]()
+ """Send timeout (takes `struct timeval`)."""
+ comptime SO_ACCEPTCONN: c_int = constant[
+-    "SO_ACCEPTCONN", linux=30, macos=0x0002
+-]()
++    "SO_ACCEPTCONN", linux=30, macos=0x0002, freebsd=Optional[c_int](2)]()
+ """Whether the socket is listening (read-only)."""
+ 
+ # ===----------------------------------------------------------------------=== #
+@@ -119,21 +118,19 @@ comptime MSG_PEEK: c_int = 0x2
+ """Peek at incoming data without consuming it."""
+ comptime MSG_DONTROUTE: c_int = 0x4
+ """Send directly to the interface, bypassing routing."""
+-comptime MSG_CTRUNC: c_int = constant["MSG_CTRUNC", linux=0x8, macos=0x20]()
++comptime MSG_CTRUNC: c_int = constant["MSG_CTRUNC", linux=0x8, macos=0x20, freebsd=Optional[c_int](32)]()
+ """Ancillary data was truncated (reported in `recvmsg`'s `msg_flags`)."""
+-comptime MSG_TRUNC: c_int = constant["MSG_TRUNC", linux=0x20, macos=0x10]()
++comptime MSG_TRUNC: c_int = constant["MSG_TRUNC", linux=0x20, macos=0x10, freebsd=Optional[c_int](16)]()
+ """The datagram was truncated (reported in `recvmsg`'s `msg_flags`)."""
+ comptime MSG_DONTWAIT: c_int = constant[
+-    "MSG_DONTWAIT", linux=0x40, macos=0x80
+-]()
++    "MSG_DONTWAIT", linux=0x40, macos=0x80, freebsd=Optional[c_int](128)]()
+ """Non-blocking operation for this call only."""
+-comptime MSG_EOR: c_int = constant["MSG_EOR", linux=0x80, macos=0x8]()
++comptime MSG_EOR: c_int = constant["MSG_EOR", linux=0x80, macos=0x8, freebsd=Optional[c_int](8)]()
+ """Terminate a record, on socket types that have records."""
+-comptime MSG_WAITALL: c_int = constant["MSG_WAITALL", linux=0x100, macos=0x40]()
++comptime MSG_WAITALL: c_int = constant["MSG_WAITALL", linux=0x100, macos=0x40, freebsd=Optional[c_int](64)]()
+ """Block until the full request is received."""
+ comptime MSG_NOSIGNAL: c_int = constant[
+-    "MSG_NOSIGNAL", linux=0x4000, macos=0x80000
+-]()
++    "MSG_NOSIGNAL", linux=0x4000, macos=0x80000, freebsd=Optional[c_int](131072)]()
+ """Don't raise `SIGPIPE` on send to a closed peer."""
+ 
+ # ===----------------------------------------------------------------------=== #
+@@ -159,6 +156,5 @@ comptime SHUT_RDWR: c_int = 2
+ # ===----------------------------------------------------------------------=== #
+ 
+ comptime O_NONBLOCK: c_int = constant[
+-    "O_NONBLOCK", linux=0o4000, macos=0x0004
+-]()
++    "O_NONBLOCK", linux=0o4000, macos=0x0004, freebsd=Optional[c_int](4)]()
+ """Non-blocking file status flag."""
+diff --git a/Mojo/stdlib/std/os/fstat.mojo b/Mojo/stdlib/std/os/fstat.mojo
+index 96a1d23..fdc8844 100644
+--- a/Mojo/stdlib/std/os/fstat.mojo
++++ b/Mojo/stdlib/std/os/fstat.mojo
+@@ -23,6 +23,8 @@ from std.sys import CompilationTarget
+ from std.time.time import _CTimeSpec
+ 
+ from . import PathLike as stdPathLike
++from ._freebsd import _lstat as _lstat_freebsd
++from ._freebsd import _stat as _stat_freebsd
+ from ._linux_aarch64 import _lstat as _lstat_linux_arm
+ from ._linux_aarch64 import _stat as _stat_linux_arm
+ from ._linux_x86 import _lstat as _lstat_linux_x86
+@@ -193,7 +195,9 @@ def stat[PathLike: stdPathLike](path: PathLike) raises -> stat_result:
+     """
+     var fspath = path.__fspath__()
+ 
+-    comptime if CompilationTarget.is_macos():
++    comptime if CompilationTarget.is_freebsd():
++        return _stat_freebsd(fspath^)._to_stat_result()
++    elif CompilationTarget.is_macos():
+         return _stat_macos(fspath^)._to_stat_result()
+     elif CompilationTarget.has_neon():
+         return _stat_linux_arm(fspath^)._to_stat_result()
+@@ -222,7 +226,9 @@ def lstat[PathLike: stdPathLike](path: PathLike) raises -> stat_result:
+     """
+     var fspath = path.__fspath__()
+ 
+-    comptime if CompilationTarget.is_macos():
++    comptime if CompilationTarget.is_freebsd():
++        return _lstat_freebsd(fspath^)._to_stat_result()
++    elif CompilationTarget.is_macos():
+         return _lstat_macos(fspath^)._to_stat_result()
+     elif CompilationTarget.has_neon():
+         return _lstat_linux_arm(fspath^)._to_stat_result()
+diff --git a/Mojo/stdlib/std/os/os.mojo b/Mojo/stdlib/std/os/os.mojo
+index 11783ab..a49a354 100644
+--- a/Mojo/stdlib/std/os/os.mojo
++++ b/Mojo/stdlib/std/os/os.mojo
+@@ -86,6 +86,19 @@ struct _dirent_macos(Copyable):
+     """Name of entry."""
+ 
+ 
++struct _dirent_freebsd(Copyable):
++    # Native <sys/dirent.h>: d_name starts at byte 24 on 64-bit FreeBSD.
++    comptime MAX_NAME_SIZE = 256
++    var d_fileno: UInt64
++    var d_off: Int64
++    var d_reclen: UInt16
++    var d_type: UInt8
++    var d_pad0: UInt8
++    var d_namlen: UInt16
++    var d_pad1: UInt16
++    var name: Array[c_char, Self.MAX_NAME_SIZE]
++
++
+ struct _DirHandle:
+     """Handle to an open directory descriptor opened via opendir."""
+ 
+@@ -127,7 +140,9 @@ struct _DirHandle:
+           A string containing the output of running the command.
+         """
+ 
+-        comptime if CompilationTarget.is_linux():
++        comptime if CompilationTarget.is_freebsd():
++            return self._list_freebsd()
++        elif CompilationTarget.is_linux():
+             return self._list_linux()
+         else:
+             return self._list_macos()
+@@ -162,6 +177,27 @@ struct _DirHandle:
+ 
+         return res^
+ 
++    def _list_freebsd(self) -> List[String]:
++        """Reads directory entries using FreeBSD's native ABI."""
++        var res = List[String]()
++        while True:
++            var ep = external_call[
++                "readdir", OptionalPointer[_dirent_freebsd, MutUntrackedOrigin]
++            ](self._handle)
++            if not ep:
++                break
++            ref entry = ep.unsafe_value()[]
++            var name_str = StringSlice(
++                unsafe_from_utf8=Span(
++                    unsafe_ptr=entry.name.unsafe_ptr().unsafe_bitcast[Byte](),
++                    length=Int(entry.d_namlen),
++                )
++            )
++            if name_str == "." or name_str == "..":
++                continue
++            res.append(String(name_str))
++        return res^
++
+     def _list_macos(self) -> List[String]:
+         """Reads all the data from the handle.
+ 
+diff --git a/Mojo/stdlib/std/os/path/path.mojo b/Mojo/stdlib/std/os/path/path.mojo
+index eeaba86..a029965 100644
+--- a/Mojo/stdlib/std/os/path/path.mojo
++++ b/Mojo/stdlib/std/os/path/path.mojo
+@@ -28,6 +28,8 @@ from std.sys import CompilationTarget
+ from std.sys._libc import realpath as libc_realpath
+ 
+ from .. import PathLike as stdPathLike, getuid
++from .._freebsd import _lstat as _lstat_freebsd
++from .._freebsd import _stat as _stat_freebsd
+ from .._linux_aarch64 import _lstat as _lstat_linux_arm
+ from .._linux_aarch64 import _stat as _stat_linux_arm
+ from .._linux_x86 import _lstat as _lstat_linux_x86
+@@ -46,7 +48,9 @@ from ..os import sep
+ 
+ @inline(.always)
+ def _get_stat_st_mode(var path: String) raises -> Int:
+-    comptime if CompilationTarget.is_macos():
++    comptime if CompilationTarget.is_freebsd():
++        return Int(_stat_freebsd(path^).st_mode)
++    elif CompilationTarget.is_macos():
+         return Int(_stat_macos(path^).st_mode)
+     elif CompilationTarget.has_neon():
+         return Int(_stat_linux_arm(path^).st_mode)
+@@ -56,7 +60,9 @@ def _get_stat_st_mode(var path: String) raises -> Int:
+ 
+ @inline(.always)
+ def _get_lstat_st_mode(var path: String) raises -> Int:
+-    comptime if CompilationTarget.is_macos():
++    comptime if CompilationTarget.is_freebsd():
++        return Int(_lstat_freebsd(path^).st_mode)
++    elif CompilationTarget.is_macos():
+         return Int(_lstat_macos(path^).st_mode)
+     elif CompilationTarget.has_neon():
+         return Int(_lstat_linux_arm(path^).st_mode)
+diff --git a/Mojo/stdlib/std/os/process.mojo b/Mojo/stdlib/std/os/process.mojo
+index f490701..1141b5b 100644
+--- a/Mojo/stdlib/std/os/process.mojo
++++ b/Mojo/stdlib/std/os/process.mojo
+@@ -293,7 +293,7 @@ struct Process:
+                 # Process was terminated by a signal. Extract the signal number.
+                 var signal = status & 0x7F
+                 return ProcessStatus(term_signal=Optional(Int(signal)))
+-        elif pid == 0:
++        elif pid == c_pid_t(from_int=0):
+             # Process is still running (only for non-blocking calls).
+             return ProcessStatus.running()
+         else:
+@@ -388,7 +388,9 @@ struct Process:
+         """
+ 
+         comptime assert (
+-            CompilationTarget.is_linux() or CompilationTarget.is_macos()
++            CompilationTarget.is_linux()
++            or CompilationTarget.is_macos()
++            or CompilationTarget.is_freebsd()
+         ), "Unknown platform process execution not implemented"
+         var parts = path.split(sep)
+         var file_name = String(parts[len(parts) - 1])
+@@ -416,7 +418,7 @@ struct Process:
+         # `argv` ptr array terminates with NULL PTR
+         argv_array_ptr_cstr_ptr[offset] = {}
+ 
+-        var pid: c_pid_t = 0
++        var pid = c_pid_t(from_int=0)
+ 
+         var has_error_code = posix_spawnp(
+             Pointer(to=pid),
+diff --git a/Mojo/stdlib/std/pwd/pwd.mojo b/Mojo/stdlib/std/pwd/pwd.mojo
+index 4971239..17deb99 100644
+--- a/Mojo/stdlib/std/pwd/pwd.mojo
++++ b/Mojo/stdlib/std/pwd/pwd.mojo
+@@ -18,7 +18,7 @@ user ID or username, returning structured account information including home
+ directory, shell, and user/group IDs.
+ 
+ Constraints:
+-    Available on Linux and macOS only.
++    Available on Linux, macOS and FreeBSD.
+ """
+ 
+ from std.sys import CompilationTarget
+@@ -26,6 +26,7 @@ from std.sys import CompilationTarget
+ # ===----------------------------------------------------------------------=== #
+ # Passwd
+ # ===----------------------------------------------------------------------=== #
++from ._freebsd import _getpw_freebsd
+ from ._linux import _getpw_linux
+ from ._macos import _getpw_macos
+ 
+@@ -82,11 +83,12 @@ def getpwuid(uid: Int) raises -> Passwd:
+         information.
+ 
+     Constraints:
+-        This function is constrained to run on Linux or macOS operating systems
+-        only.
++        This function is constrained to run on Linux, macOS or FreeBSD operating systems.
+     """
+ 
+-    comptime if CompilationTarget.is_macos():
++    comptime if CompilationTarget.is_freebsd():
++        return _getpw_freebsd(UInt32(uid))
++    elif CompilationTarget.is_macos():
+         return _getpw_macos(UInt32(uid))
+     else:
+         return _getpw_linux(UInt32(uid))
+@@ -109,11 +111,12 @@ def getpwnam(var name: String) raises -> Passwd:
+         information.
+ 
+     Constraints:
+-        This function is constrained to run on Linux or macOS operating systems
+-        only.
++        This function is constrained to run on Linux, macOS or FreeBSD operating systems.
+     """
+ 
+-    comptime if CompilationTarget.is_macos():
++    comptime if CompilationTarget.is_freebsd():
++        return _getpw_freebsd(name)
++    elif CompilationTarget.is_macos():
+         return _getpw_macos(name)
+     else:
+         return _getpw_linux(name)
+diff --git a/Mojo/stdlib/std/sys/_libc.mojo b/Mojo/stdlib/std/sys/_libc.mojo
+index b4b5a87..7e36def 100644
+--- a/Mojo/stdlib/std/sys/_libc.mojo
++++ b/Mojo/stdlib/std/sys/_libc.mojo
+@@ -183,6 +183,12 @@ def _get_environ() -> (
+             "_NSGetEnviron",
+             OptionalPointer[_EnvpType, ImmUntrackedOrigin],
+         ]().value()[]
++    elif CompilationTarget.is_freebsd():
++        # FreeBSD defines RTLD_DEFAULT as ((void *)-2).
++        return dlsym[_EnvpType](
++            Pointer[NoneType, MutUntrackedOrigin](unsafe_from_address=Int(-2)),
++            "environ".as_c_string_span().ptr(),
++        ).value()[]
+     elif CompilationTarget.is_linux():
+         # On Linux, look up `environ` via dlsym(RTLD_DEFAULT, "environ").
+         # RTLD_DEFAULT is ((void *)0) on Linux.
+diff --git a/Mojo/stdlib/std/sys/_libc_errno.mojo b/Mojo/stdlib/std/sys/_libc_errno.mojo
+index 56166b5..d33e1f6 100644
+--- a/Mojo/stdlib/std/sys/_libc_errno.mojo
++++ b/Mojo/stdlib/std/sys/_libc_errno.mojo
+@@ -18,7 +18,7 @@ from std.sys.info import CompilationTarget, platform_map
+ def _errno_ptr(out result: Pointer[c_int, MutUntrackedOrigin]):
+     comptime if CompilationTarget.is_linux():
+         result = external_call["__errno_location", type_of(result)]()
+-    elif CompilationTarget.is_macos():
++    elif CompilationTarget.is_macos() or CompilationTarget.is_freebsd():
+         result = external_call["__error", type_of(result)]()
+     else:
+         CompilationTarget.unsupported_target_error[operation="get_errno"]()
+@@ -29,7 +29,7 @@ def get_errno() -> ErrNo:
+ 
+     This function retrieves the thread-local errno value set by the last
+     failed system call. The implementation is platform-specific, using
+-    `__errno_location()` on Linux and `__error()` on macOS.
++    `__errno_location()` on Linux and `__error()` on macOS and FreeBSD.
+ 
+     Returns:
+         The current errno value as an ErrNo struct.
+@@ -108,7 +108,7 @@ struct ErrNo(Equatable, TrivialRegisterPassable, Writable):
+     """Bad file number."""
+     comptime ECHILD         = Self(10)
+     """No child processes."""
+-    comptime EAGAIN         = Self(pm["EAGAIN",           linux=11, macos=35]())
++    comptime EAGAIN         = Self(pm["EAGAIN",           linux=11, macos=35, freebsd=35]())
+     """Try again."""
+     comptime ENOMEM         = Self(12)
+     """Out of memory."""
+@@ -156,23 +156,23 @@ struct ErrNo(Equatable, TrivialRegisterPassable, Writable):
+     """Math argument out of domain of func."""
+     comptime ERANGE         = Self(34)
+     """Math result not representable."""
+-    comptime EDEADLK        = Self(pm["EDEADLK",          linux=35, macos=11]())
++    comptime EDEADLK        = Self(pm["EDEADLK",          linux=35, macos=11, freebsd=11]())
+     """Resource deadlock would occur."""
+-    comptime ENAMETOOLONG   = Self(pm["ENAMETOOLONG",     linux=36, macos=63]())
++    comptime ENAMETOOLONG   = Self(pm["ENAMETOOLONG",     linux=36, macos=63, freebsd=63]())
+     """File name too long."""
+-    comptime ENOLCK         = Self(pm["ENOLCK",           linux=37, macos=77]())
++    comptime ENOLCK         = Self(pm["ENOLCK",           linux=37, macos=77, freebsd=77]())
+     """No record locks available."""
+-    comptime ENOSYS         = Self(pm["ENOSYS",           linux=38, macos=78]())
++    comptime ENOSYS         = Self(pm["ENOSYS",           linux=38, macos=78, freebsd=78]())
+     """Function not implemented."""
+-    comptime ENOTEMPTY      = Self(pm["ENOTEMPTY",        linux=39, macos=66]())
++    comptime ENOTEMPTY      = Self(pm["ENOTEMPTY",        linux=39, macos=66, freebsd=66]())
+     """Directory not empty."""
+-    comptime ELOOP          = Self(pm["ELOOP",            linux=40, macos=62]())
++    comptime ELOOP          = Self(pm["ELOOP",            linux=40, macos=62, freebsd=62]())
+     """Too many symbolic links encountered."""
+     comptime EWOULDBLOCK    = Self.EAGAIN
+     """Operation would block."""
+-    comptime ENOMSG         = Self(pm["ENOMSG",           linux=42, macos=91]())
++    comptime ENOMSG         = Self(pm["ENOMSG",           linux=42, macos=91, freebsd=83]())
+     """No message of desired type."""
+-    comptime EIDRM          = Self(pm["EIDRM",            linux=43, macos=90]())
++    comptime EIDRM          = Self(pm["EIDRM",            linux=43, macos=90, freebsd=82]())
+     """Identifier removed."""
+     comptime ECHRNG         = Self(pm["ECHRNG",           linux=44]())
+     """Channel number out of range."""
+@@ -218,9 +218,9 @@ struct ErrNo(Equatable, TrivialRegisterPassable, Writable):
+     """Machine is not on the network."""
+     comptime ENOPKG         = Self(pm["ENOPKG",           linux=65]())
+     """Package not installed."""
+-    comptime EREMOTE        = Self(pm["EREMOTE",          linux=66, macos=71]())
++    comptime EREMOTE        = Self(pm["EREMOTE",          linux=66, macos=71, freebsd=71]())
+     """Object is remote."""
+-    comptime ENOLINK        = Self(pm["ENOLINK",          linux=67, macos=97]())
++    comptime ENOLINK        = Self(pm["ENOLINK",          linux=67, macos=97, freebsd=91]())
+     """Link has been severed."""
+     comptime EADV           = Self(pm["EADV",             linux=68]())
+     """Advertise error."""
+@@ -228,15 +228,15 @@ struct ErrNo(Equatable, TrivialRegisterPassable, Writable):
+     """Srmount error."""
+     comptime ECOMM          = Self(pm["ECOMM",            linux=70]())
+     """Communication error on send."""
+-    comptime EPROTO         = Self(pm["EPROTO",           linux=71, macos=100]())
++    comptime EPROTO         = Self(pm["EPROTO",           linux=71, macos=100, freebsd=92]())
+     """Protocol error."""
+-    comptime EMULTIHOP      = Self(pm["EMULTIHOP",        linux=72, macos=95]())
++    comptime EMULTIHOP      = Self(pm["EMULTIHOP",        linux=72, macos=95, freebsd=90]())
+     """Multihop attempted."""
+     comptime EDOTDOT        = Self(pm["EDOTDOT",          linux=73]())
+     """RFS specific error."""
+-    comptime EBADMSG        = Self(pm["EBADMSG",          linux=74, macos=94]())
++    comptime EBADMSG        = Self(pm["EBADMSG",          linux=74, macos=94, freebsd=89]())
+     """Not a data message."""
+-    comptime EOVERFLOW      = Self(pm["EOVERFLOW",        linux=75, macos=84]())
++    comptime EOVERFLOW      = Self(pm["EOVERFLOW",        linux=75, macos=84, freebsd=84]())
+     """Value too large for defined data type."""
+     comptime ENOTUNIQ       = Self(pm["ENOTUNIQ",         linux=76]())
+     """Name not unique on network."""
+@@ -254,71 +254,71 @@ struct ErrNo(Equatable, TrivialRegisterPassable, Writable):
+     """Attempting to link in too many shared libraries."""
+     comptime ELIBEXEC       = Self(pm["ELIBEXEC",         linux=83]())
+     """Cannot exec a shared library directly."""
+-    comptime EILSEQ         = Self(pm["EILSEQ",           linux=84, macos=92]())
++    comptime EILSEQ         = Self(pm["EILSEQ",           linux=84, macos=92, freebsd=86]())
+     """Illegal byte sequence."""
+     comptime ERESTART       = Self(pm["ERESTART",         linux=85]())
+     """Interrupted system call should be restarted."""
+     comptime ESTRPIPE       = Self(pm["ESTRPIPE",         linux=86]())
+     """Streams pipe error."""
+-    comptime EUSERS         = Self(pm["EUSERS",           linux=87, macos=68]())
++    comptime EUSERS         = Self(pm["EUSERS",           linux=87, macos=68, freebsd=68]())
+     """Too many users."""
+-    comptime ENOTSOCK       = Self(pm["ENOTSOCK",         linux=88, macos=38]())
++    comptime ENOTSOCK       = Self(pm["ENOTSOCK",         linux=88, macos=38, freebsd=38]())
+     """Socket operation on non-socket."""
+-    comptime EDESTADDRREQ   = Self(pm["EDESTADDRREQ",     linux=89, macos=39]())
++    comptime EDESTADDRREQ   = Self(pm["EDESTADDRREQ",     linux=89, macos=39, freebsd=39]())
+     """Destination address required."""
+-    comptime EMSGSIZE       = Self(pm["EMSGSIZE",         linux=90, macos=40]())
++    comptime EMSGSIZE       = Self(pm["EMSGSIZE",         linux=90, macos=40, freebsd=40]())
+     """Message too long."""
+-    comptime EPROTOTYPE     = Self(pm["EPROTOTYPE",       linux=91, macos=41]())
++    comptime EPROTOTYPE     = Self(pm["EPROTOTYPE",       linux=91, macos=41, freebsd=41]())
+     """Protocol wrong type for socket."""
+-    comptime ENOPROTOOPT    = Self(pm["ENOPROTOOPT",      linux=92, macos=42]())
++    comptime ENOPROTOOPT    = Self(pm["ENOPROTOOPT",      linux=92, macos=42, freebsd=42]())
+     """Protocol not available."""
+-    comptime EPROTONOSUPPORT= Self(pm["EPROTONOSUPPORT",  linux=93, macos=43]())
++    comptime EPROTONOSUPPORT= Self(pm["EPROTONOSUPPORT",  linux=93, macos=43, freebsd=43]())
+     """Protocol not supported."""
+-    comptime ESOCKTNOSUPPORT= Self(pm["ESOCKTNOSUPPORT",  linux=94, macos=44]())
++    comptime ESOCKTNOSUPPORT= Self(pm["ESOCKTNOSUPPORT",  linux=94, macos=44, freebsd=44]())
+     """Socket type not supported."""
+-    comptime EOPNOTSUPP     = Self(pm["EOPNOTSUPP",       linux=95, macos=102]())
++    comptime EOPNOTSUPP     = Self(pm["EOPNOTSUPP",       linux=95, macos=102, freebsd=45]())
+     """Operation not supported on transport endpoint."""
+-    comptime EPFNOSUPPORT   = Self(pm["EPFNOSUPPORT",     linux=96, macos=46]())
++    comptime EPFNOSUPPORT   = Self(pm["EPFNOSUPPORT",     linux=96, macos=46, freebsd=46]())
+     """Protocol family not supported."""
+-    comptime EAFNOSUPPORT   = Self(pm["EAFNOSUPPORT",     linux=97, macos=47]())
++    comptime EAFNOSUPPORT   = Self(pm["EAFNOSUPPORT",     linux=97, macos=47, freebsd=47]())
+     """Address family not supported by protocol."""
+-    comptime EADDRINUSE     = Self(pm["EADDRINUSE",       linux=98, macos=48]())
++    comptime EADDRINUSE     = Self(pm["EADDRINUSE",       linux=98, macos=48, freebsd=48]())
+     """Address already in use."""
+-    comptime EADDRNOTAVAIL  = Self(pm["EADDRNOTAVAIL",    linux=99, macos=49]())
++    comptime EADDRNOTAVAIL  = Self(pm["EADDRNOTAVAIL",    linux=99, macos=49, freebsd=49]())
+     """Cannot assign requested address."""
+-    comptime ENETDOWN       = Self(pm["ENETDOWN",         linux=100, macos=50]())
++    comptime ENETDOWN       = Self(pm["ENETDOWN",         linux=100, macos=50, freebsd=50]())
+     """Network is down."""
+-    comptime ENETUNREACH    = Self(pm["ENETUNREACH",      linux=101, macos=51]())
++    comptime ENETUNREACH    = Self(pm["ENETUNREACH",      linux=101, macos=51, freebsd=51]())
+     """Network is unreachable."""
+-    comptime ENETRESET      = Self(pm["ENETRESET",        linux=102, macos=52]())
++    comptime ENETRESET      = Self(pm["ENETRESET",        linux=102, macos=52, freebsd=52]())
+     """Network dropped connection because of reset."""
+-    comptime ECONNABORTED   = Self(pm["ECONNABORTED",     linux=103, macos=53]())
++    comptime ECONNABORTED   = Self(pm["ECONNABORTED",     linux=103, macos=53, freebsd=53]())
+     """Software caused connection abort."""
+-    comptime ECONNRESET     = Self(pm["ECONNRESET",       linux=104, macos=54]())
++    comptime ECONNRESET     = Self(pm["ECONNRESET",       linux=104, macos=54, freebsd=54]())
+     """Connection reset by peer."""
+-    comptime ENOBUFS        = Self(pm["ENOBUFS",          linux=105, macos=55]())
++    comptime ENOBUFS        = Self(pm["ENOBUFS",          linux=105, macos=55, freebsd=55]())
+     """No buffer space available."""
+-    comptime EISCONN        = Self(pm["EISCONN",          linux=106, macos=56]())
++    comptime EISCONN        = Self(pm["EISCONN",          linux=106, macos=56, freebsd=56]())
+     """Transport endpoint is already connected."""
+-    comptime ENOTCONN       = Self(pm["ENOTCONN",         linux=107, macos=57]())
++    comptime ENOTCONN       = Self(pm["ENOTCONN",         linux=107, macos=57, freebsd=57]())
+     """Transport endpoint is not connected."""
+-    comptime ESHUTDOWN      = Self(pm["ESHUTDOWN",        linux=108, macos=58]())
++    comptime ESHUTDOWN      = Self(pm["ESHUTDOWN",        linux=108, macos=58, freebsd=58]())
+     """Cannot send after transport endpoint shutdown."""
+-    comptime ETOOMANYREFS   = Self(pm["ETOOMANYREFS",     linux=109, macos=59]())
++    comptime ETOOMANYREFS   = Self(pm["ETOOMANYREFS",     linux=109, macos=59, freebsd=59]())
+     """Too many references: cannot splice."""
+-    comptime ETIMEDOUT      = Self(pm["ETIMEDOUT",        linux=110, macos=60]())
++    comptime ETIMEDOUT      = Self(pm["ETIMEDOUT",        linux=110, macos=60, freebsd=60]())
+     """Connection timed out."""
+-    comptime ECONNREFUSED   = Self(pm["ECONNREFUSED",     linux=111, macos=61]())
++    comptime ECONNREFUSED   = Self(pm["ECONNREFUSED",     linux=111, macos=61, freebsd=61]())
+     """Connection refused."""
+-    comptime EHOSTDOWN      = Self(pm["EHOSTDOWN",        linux=112, macos=64]())
++    comptime EHOSTDOWN      = Self(pm["EHOSTDOWN",        linux=112, macos=64, freebsd=64]())
+     """Host is down."""
+-    comptime EHOSTUNREACH   = Self(pm["EHOSTUNREACH",     linux=113, macos=65]())
++    comptime EHOSTUNREACH   = Self(pm["EHOSTUNREACH",     linux=113, macos=65, freebsd=65]())
+     """No route to host."""
+-    comptime EALREADY       = Self(pm["EALREADY",         linux=114, macos=37]())
++    comptime EALREADY       = Self(pm["EALREADY",         linux=114, macos=37, freebsd=37]())
+     """Operation already in progress."""
+-    comptime EINPROGRESS    = Self(pm["EINPROGRESS",      linux=115, macos=36]())
++    comptime EINPROGRESS    = Self(pm["EINPROGRESS",      linux=115, macos=36, freebsd=36]())
+     """Operation now in progress."""
+-    comptime ESTALE         = Self(pm["ESTALE",           linux=116, macos=70]())
++    comptime ESTALE         = Self(pm["ESTALE",           linux=116, macos=70, freebsd=70]())
+     """Stale NFS file handle."""
+     comptime EUCLEAN        = Self(pm["EUCLEAN",          linux=117]())
+     """Structure needs cleaning."""
+@@ -330,13 +330,13 @@ struct ErrNo(Equatable, TrivialRegisterPassable, Writable):
+     """Is a named type file."""
+     comptime EREMOTEIO      = Self(pm["EREMOTEIO",        linux=121]())
+     """Remote I/O error."""
+-    comptime EDQUOT         = Self(pm["EDQUOT",           linux=122, macos=69]())
++    comptime EDQUOT         = Self(pm["EDQUOT",           linux=122, macos=69, freebsd=69]())
+     """Quota exceeded."""
+     comptime ENOMEDIUM      = Self(pm["ENOMEDIUM",        linux=123]())
+     """No medium found."""
+     comptime EMEDIUMTYPE    = Self(pm["EMEDIUMTYPE",      linux=124]())
+     """Wrong medium type."""
+-    comptime ECANCELED      = Self(pm["ECANCELED",        linux=125, macos=89]())
++    comptime ECANCELED      = Self(pm["ECANCELED",        linux=125, macos=89, freebsd=85]())
+     """Operation canceled."""
+     comptime ENOKEY         = Self(pm["ENOKEY",           linux=126]())
+     """Required key not available."""
+@@ -346,9 +346,9 @@ struct ErrNo(Equatable, TrivialRegisterPassable, Writable):
+     """Key has been revoked."""
+     comptime EKEYREJECTED   = Self(pm["EKEYREJECTED",     linux=129]())
+     """Key was rejected by service."""
+-    comptime EOWNERDEAD     = Self(pm["EOWNERDEAD",       linux=130, macos=105]())
++    comptime EOWNERDEAD     = Self(pm["EOWNERDEAD",       linux=130, macos=105, freebsd=96]())
+     """Owner died."""
+-    comptime ENOTRECOVERABLE= Self(pm["ENOTRECOVERABLE",  linux=131, macos=104]())
++    comptime ENOTRECOVERABLE= Self(pm["ENOTRECOVERABLE",  linux=131, macos=104, freebsd=95]())
+     """State not recoverable."""
+     comptime ERFKILL        = Self(pm["ERFKILL",          linux=132]())
+     """Operation not possible due to RF-kill."""
+@@ -357,25 +357,25 @@ struct ErrNo(Equatable, TrivialRegisterPassable, Writable):
+ 
+ 
+     # macOS-specific
+-    comptime ENOTSUP        = Self(pm["ENOTSUP",          macos=45]())
++    comptime ENOTSUP        = Self(pm["ENOTSUP",          macos=45, freebsd=45]())
+     """Operation not supported."""
+-    comptime EPROCLIM       = Self(pm["EPROCLIM",         macos=67]())
++    comptime EPROCLIM       = Self(pm["EPROCLIM",         macos=67, freebsd=67]())
+     """Too many processes."""
+-    comptime EBADRPC        = Self(pm["EBADRPC",          macos=72]())
++    comptime EBADRPC        = Self(pm["EBADRPC",          macos=72, freebsd=72]())
+     """RPC struct is bad."""
+-    comptime ERPCMISMATCH   = Self(pm["ERPCMISMATCH",     macos=73]())
++    comptime ERPCMISMATCH   = Self(pm["ERPCMISMATCH",     macos=73, freebsd=73]())
+     """RPC version wrong."""
+-    comptime EPROGUNAVAIL   = Self(pm["EPROGUNAVAIL",     macos=74]())
++    comptime EPROGUNAVAIL   = Self(pm["EPROGUNAVAIL",     macos=74, freebsd=74]())
+     """RPC prog. not avail."""
+-    comptime EPROGMISMATCH  = Self(pm["EPROGMISMATCH",    macos=75]())
++    comptime EPROGMISMATCH  = Self(pm["EPROGMISMATCH",    macos=75, freebsd=75]())
+     """Program version wrong."""
+-    comptime EPROCUNAVAIL   = Self(pm["EPROCUNAVAIL",     macos=76]())
++    comptime EPROCUNAVAIL   = Self(pm["EPROCUNAVAIL",     macos=76, freebsd=76]())
+     """Bad procedure for program."""
+-    comptime EFTYPE         = Self(pm["EFTYPE",           macos=79]())
++    comptime EFTYPE         = Self(pm["EFTYPE",           macos=79, freebsd=79]())
+     """Inappropriate file type or format."""
+-    comptime EAUTH          = Self(pm["EAUTH",            macos=80]())
++    comptime EAUTH          = Self(pm["EAUTH",            macos=80, freebsd=80]())
+     """Authentication error."""
+-    comptime ENEEDAUTH      = Self(pm["ENEEDAUTH",        macos=81]())
++    comptime ENEEDAUTH      = Self(pm["ENEEDAUTH",        macos=81, freebsd=81]())
+     """Need authenticator."""
+     comptime EPWROFF        = Self(pm["EPWROFF",          macos=82]())
+     """Device power is off."""
+@@ -389,7 +389,7 @@ struct ErrNo(Equatable, TrivialRegisterPassable, Writable):
+     """Shared library version mismatch."""
+     comptime EBADMACHO      = Self(pm["EBADMACHO",        macos=88]())
+     """Malformed Macho file."""
+-    comptime ENOATTR        = Self(pm["ENOATTR",          macos=93]())
++    comptime ENOATTR        = Self(pm["ENOATTR",          macos=93, freebsd=87]())
+     """Attribute not found."""
+     comptime ENOPOLICY      = Self(pm["ENOPOLICY",        macos=103]())
+     """No such policy registered."""
+diff --git a/Mojo/stdlib/std/sys/info.mojo b/Mojo/stdlib/std/sys/info.mojo
+index 0172632..7424216 100644
+--- a/Mojo/stdlib/std/sys/info.mojo
++++ b/Mojo/stdlib/std/sys/info.mojo
+@@ -798,6 +798,24 @@ struct CompilationTarget[_mlir_value: _TargetType = _current_target(), //](
+         """
+         return Self._os() in ["darwin", "macosx"]
+ 
++    @staticmethod
++    def is_freebsd() -> Bool:
++        """Returns whether the compilation target is FreeBSD or 5BSD.
++
++        Returns:
++            `True` for a FreeBSD or 5BSD target and `False` otherwise.
++
++        Example:
++
++        ```mojo
++        from std.sys import CompilationTarget
++
++        def main():
++            print(CompilationTarget.is_freebsd())
++        ```
++        """
++        return Self._os() == "freebsd"
++
+ 
+ def platform_map[
+     T: Copyable,
+@@ -806,6 +824,7 @@ def platform_map[
+     *,
+     linux: Optional[T] = None,
+     macos: Optional[T] = None,
++    freebsd: Optional[T] = None,
+ ]() -> T:
+     """Helper for defining a compile time value depending
+     on the current compilation target, raising a compilation
+@@ -816,6 +835,7 @@ def platform_map[
+         operation: Optional operation name for error messages.
+         linux: The value to use on Linux platforms.
+         macos: The value to use on macOS platforms.
++        freebsd: The value to use on FreeBSD platforms.
+ 
+     Returns:
+         The platform-specific value for the current target.
+@@ -825,7 +845,9 @@ def platform_map[
+     ```mojo
+     from std.sys.info import platform_map
+ 
+-    comptime EDEADLK = platform_map["EDEADLK", linux=35, macos=11]()
++    comptime EDEADLK = platform_map[
++        T=Int, "EDEADLK", linux=35, macos=11, freebsd=11
++    ]()
+     ```
+     """
+ 
+@@ -833,6 +855,8 @@ def platform_map[
+         return materialize[macos.value()]()
+     elif CompilationTarget.is_linux() and linux:
+         return materialize[linux.value()]()
++    elif CompilationTarget.is_freebsd() and freebsd:
++        return materialize[freebsd.value()]()
+     else:
+         CompilationTarget.unsupported_target_error[operation=operation]()
+ 
+diff --git a/Mojo/stdlib/std/time/time.mojo b/Mojo/stdlib/std/time/time.mojo
+index 3167156..f462d7e 100644
+--- a/Mojo/stdlib/std/time/time.mojo
++++ b/Mojo/stdlib/std/time/time.mojo
+@@ -29,17 +29,24 @@ from std.sys import (
+     is_nvidia_gpu,
+     llvm_intrinsic,
+ )
++from std.sys.info import platform_map
+ from std.sys._assembly import inlined_assembly
+ 
+ # ===-----------------------------------------------------------------------===#
+ # Utilities
+ # ===-----------------------------------------------------------------------===#
+ 
+-# Enums used in time.h 's glibc
++# Clock IDs from each platform's <time.h>.
+ comptime _CLOCK_REALTIME = 0
+-comptime _CLOCK_MONOTONIC = 1 if CompilationTarget.is_linux() else 6
+-comptime _CLOCK_PROCESS_CPUTIME_ID = 2 if CompilationTarget.is_linux() else 12
+-comptime _CLOCK_THREAD_CPUTIME_ID = 3 if CompilationTarget.is_linux() else 16
++comptime _CLOCK_MONOTONIC = platform_map[
++    T=Int, "CLOCK_MONOTONIC", linux=1, macos=6, freebsd=4
++]()
++comptime _CLOCK_PROCESS_CPUTIME_ID = platform_map[
++    T=Int, "CLOCK_PROCESS_CPUTIME_ID", linux=2, macos=12, freebsd=15
++]()
++comptime _CLOCK_THREAD_CPUTIME_ID = platform_map[
++    T=Int, "CLOCK_THREAD_CPUTIME_ID", linux=3, macos=16, freebsd=14
++]()
+ comptime _CLOCK_MONOTONIC_RAW = 4
+ 
+ # Constants
+@@ -80,7 +87,7 @@ def _clock_gettime(clockid: Int) -> _CTimeSpec:
+ 
+ @inline(.always)
+ def _gettime_as_nsec_unix(clockid: Int) -> Int:
+-    comptime if CompilationTarget.is_linux():
++    comptime if CompilationTarget.is_linux() or CompilationTarget.is_freebsd():
+         var ts = _clock_gettime(clockid)
+         return ts.as_nanoseconds()
+     else:
+diff --git a/Mojo/stdlib/test/format/test_utils.mojo b/Mojo/stdlib/test/format/test_utils.mojo
+deleted file mode 100644
+index b508a7b..0000000
+--- a/Mojo/stdlib/test/format/test_utils.mojo
++++ /dev/null
+@@ -1,234 +0,0 @@
+-# ===----------------------------------------------------------------------=== #
+-# Copyright (c) 2026, Modular Inc. All rights reserved.
+-#
+-# Licensed under the Apache License v2.0 with LLVM Exceptions:
+-# https://llvm.org/LICENSE.txt
+-#
+-# Unless required by applicable law or agreed to in writing, software
+-# distributed under the License is distributed on an "AS IS" BASIS,
+-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-# See the License for the specific language governing permissions and
+-# limitations under the License.
+-# ===----------------------------------------------------------------------=== #
+-"""Tests for format._utils helper types and functions.
+-
+-This module tests the internal formatting utilities used by the standard library
+-for implementing Writable and formatting operations.
+-"""
+-
+-from std.format._utils import FormatStruct, Named, Repr, write_sequence_to
+-from std.testing import assert_equal, TestSuite
+-
+-
+-# ===----------------------------------------------------------------------=== #
+-# Test Fixtures (shared across multiple tests)
+-# ===----------------------------------------------------------------------=== #
+-
+-
+-@fieldwise_init
+-struct TestWritable(ImplicitlyCopyable, Writable):
+-    """A simple writable type for testing."""
+-
+-    var value: Int
+-
+-    def write_to(self, mut writer: Some[Writer]):
+-        writer.write("TestWritable(", self.value, ")")
+-
+-    def write_repr_to(self, mut writer: Some[Writer]):
+-        writer.write("TestWritable[repr](", self.value, ")")
+-
+-
+-# ===----------------------------------------------------------------------=== #
+-# write_sequence_to Tests
+-# ===----------------------------------------------------------------------=== #
+-
+-
+-def test_write_sequence_empty() raises:
+-    var result = String()
+-    write_sequence_to(result, start="[", end="]")
+-    assert_equal(result, "[]")
+-
+-
+-def test_write_sequence_single_element() raises:
+-    var result = String()
+-    write_sequence_to(result, 42, start="[", end="]")
+-    assert_equal(result, "[42]")
+-
+-
+-def test_write_sequence_multiple_elements() raises:
+-    var result = String()
+-    write_sequence_to(result, 1, 2, 3, start="[", end="]")
+-    assert_equal(result, "[1, 2, 3]")
+-
+-
+-def test_write_sequence_custom_delimiters() raises:
+-    var result = String()
+-    write_sequence_to(result, 1, 2, 3, start="(", end=")")
+-    assert_equal(result, "(1, 2, 3)")
+-
+-
+-def test_write_sequence_custom_separator() raises:
+-    var result = String()
+-    write_sequence_to(result, 1, 2, 3, start="[", end="]", sep="; ")
+-    assert_equal(result, "[1; 2; 3]")
+-
+-
+-def test_write_sequence_custom_all() raises:
+-    var result = String()
+-    write_sequence_to(result, "a", "b", "c", start="<", end=">", sep=" | ")
+-    assert_equal(result, "<a | b | c>")
+-
+-
+-def test_write_sequence_writable_objects() raises:
+-    var result = String()
+-    write_sequence_to(
+-        result, TestWritable(10), TestWritable(20), start="[", end="]"
+-    )
+-    assert_equal(result, "[TestWritable(10), TestWritable(20)]")
+-
+-
+-def test_write_sequence_mixed_types() raises:
+-    var result = String()
+-    write_sequence_to(result, 1, "hello", TestWritable(42), start="[", end="]")
+-    assert_equal(result, "[1, hello, TestWritable(42)]")
+-
+-
+-def test_write_sequence_empty_separator() raises:
+-    var result = String()
+-    write_sequence_to(result, 1, 2, 3, start="[", end="]", sep="")
+-    assert_equal(result, "[123]")
+-
+-
+-# ===----------------------------------------------------------------------=== #
+-# Repr Tests
+-# ===----------------------------------------------------------------------=== #
+-
+-
+-def test_repr_basic() raises:
+-    var v = TestWritable(42)
+-    # Repr should call write_repr_to
+-    assert_equal(String(Repr(v)), "TestWritable[repr](42)")
+-
+-
+-def test_repr_vs_direct() raises:
+-    var v = TestWritable(100)
+-    var repr_result = String(Repr(v))
+-    var direct_result = String(v)
+-
+-    assert_equal(repr_result, "TestWritable[repr](100)")
+-    assert_equal(direct_result, "TestWritable(100)")
+-
+-
+-# ===----------------------------------------------------------------------=== #
+-# Named Tests
+-# ===----------------------------------------------------------------------=== #
+-
+-
+-def test_named() raises:
+-    # basic
+-    assert_equal(String(Named("value", 42)), "value=42")
+-
+-    # with writable
+-    assert_equal(
+-        String(Named("field", TestWritable(100))), "field=TestWritable(100)"
+-    )
+-
+-    # empty name
+-    assert_equal(String(Named("", 42)), "=42")
+-
+-
+-# ===----------------------------------------------------------------------=== #
+-# FormatStruct Tests
+-# ===----------------------------------------------------------------------=== #
+-
+-
+-def test_format_struct_name_only() raises:
+-    var result = String()
+-    FormatStruct(result, "MyStruct").fields()
+-    assert_equal(result, "MyStruct()")
+-
+-
+-def test_format_struct_with_fields() raises:
+-    var result = String()
+-    FormatStruct(result, "Point").fields(10, 20)
+-    assert_equal(result, "Point(10, 20)")
+-
+-
+-def test_format_struct_with_params() raises:
+-    var result = String()
+-    FormatStruct(result, "Array").params("Int", 10).fields()
+-    assert_equal(result, "Array[Int, 10]()")
+-
+-
+-def test_format_struct_with_params_and_fields() raises:
+-    var result = String()
+-    FormatStruct(result, "Container").params("String").fields("value", 42)
+-    assert_equal(result, "Container[String](value, 42)")
+-
+-
+-def test_format_struct_multiple_params() raises:
+-    var result = String()
+-    FormatStruct(result, "Pair").params("Int", "String").fields(1, "test")
+-    assert_equal(result, "Pair[Int, String](1, test)")
+-
+-
+-def test_format_struct_single_param() raises:
+-    var result = String()
+-    FormatStruct(result, "Optional").params("String").fields()
+-    assert_equal(result, "Optional[String]()")
+-
+-
+-def test_format_struct_single_field() raises:
+-    var result = String()
+-    FormatStruct(result, "Wrapper").fields(42)
+-    assert_equal(result, "Wrapper(42)")
+-
+-
+-def test_format_struct_empty() raises:
+-    var result = String()
+-    FormatStruct(result, "Empty").fields()
+-    assert_equal(result, "Empty()")
+-
+-
+-# ===----------------------------------------------------------------------=== #
+-# Integration Tests
+-# ===----------------------------------------------------------------------=== #
+-
+-
+-def test_struct_repr() raises:
+-    var result = String()
+-    FormatStruct(result, "MyPoint").fields(
+-        Named("x", Repr(10)),
+-        Named("y", Repr(20)),
+-        Named("name", Repr(String("point"))),
+-    )
+-    assert_equal(result, "MyPoint(x=Int(10), y=Int(20), name='point')")
+-
+-
+-def test_parametric_struct() raises:
+-    var result = String()
+-    FormatStruct(result, "Array").params("Int", 10).fields(
+-        Named("data", 42), Named("len", 5)
+-    )
+-    assert_equal(result, "Array[Int, 10](data=42, len=5)")
+-
+-
+-def test_nested_formatting() raises:
+-    var inner_result = String()
+-    FormatStruct(inner_result, "Inner").fields(Named("x", 1), Named("y", 2))
+-
+-    # Use that in outer struct
+-    var outer_result = String()
+-    FormatStruct(outer_result, "Outer").fields(
+-        Named("inner", inner_result), Named("count", 5)
+-    )
+-    assert_equal(outer_result, "Outer(inner=Inner(x=1, y=2), count=5)")
+-
+-
+-# ===----------------------------------------------------------------------=== #
+-# Main Test Runner
+-# ===----------------------------------------------------------------------=== #
+-
+-
+-def main() raises:
+-    TestSuite.discover_tests[__functions_in_module()]().run()
+diff --git a/Mojo/stdlib/test/math/BUILD.bazel b/Mojo/stdlib/test/math/BUILD.bazel
+index 8c571cc..70c8c84 100644
+--- a/Mojo/stdlib/test/math/BUILD.bazel
++++ b/Mojo/stdlib/test/math/BUILD.bazel
+@@ -2,9 +2,16 @@ load("//bazel:api.bzl", "mojo_test")
+ 
+ package(default_visibility = ["//visibility:private"])
+ 
++# These libm comparisons also pass against the native FreeBSD libm.
++_LIBM_PLATFORMS = select({
++    "@platforms//os:linux": [],
++    "@platforms//os:freebsd": [],
++    "//conditions:default": ["@platforms//:incompatible"],
++})
++
+ _PLATFORM_CONSTRAINTS = {
+-    "test_erf.mojo": ["@platforms//os:linux"],
+-    "test_tanh.mojo": ["@platforms//os:linux"],
++    "test_erf.mojo": _LIBM_PLATFORMS,
++    "test_tanh.mojo": _LIBM_PLATFORMS,
+ }
+ 
+ [
+diff --git a/Mojo/stdlib/test/memory/pointer/BUILD.bazel b/Mojo/stdlib/test/memory/pointer/BUILD.bazel
+index 397e7e2..0a1eb91 100644
+--- a/Mojo/stdlib/test/memory/pointer/BUILD.bazel
++++ b/Mojo/stdlib/test/memory/pointer/BUILD.bazel
+@@ -33,7 +33,6 @@ _GPU_CONSTRAINTS = {
+             "//conditions:default": [],
+         }),
+         deps = [
+-            "//max:max_mojo",
+             "@mojo//:std",
+             "@mojo//:test_utils",
+         ],
+diff --git a/Mojo/stdlib/test/memory/pointer/test_pointer.mojo b/Mojo/stdlib/test/memory/pointer/test_pointer.mojo
+index 6fd2868..f5c7793 100644
+--- a/Mojo/stdlib/test/memory/pointer/test_pointer.mojo
++++ b/Mojo/stdlib/test/memory/pointer/test_pointer.mojo
+@@ -13,7 +13,7 @@
+ 
+ from std.compile import compile_info
+ from std.ffi import external_call
+-from max.gpu.host import get_gpu_target
++from std._gpu.host.info import get_gpu_target
+ from std.memory import Allocation, Layout, MaybeUninit, alloc, dealloc
+ from std.memory.unsafe_pointer import pointer_to_int
+ from std.sys import align_of, bit_width_of, size_of
+diff --git a/Mojo/stdlib/test/net/BUILD.bazel b/Mojo/stdlib/test/net/BUILD.bazel
+index c9f32b1..f6ca637 100644
+--- a/Mojo/stdlib/test/net/BUILD.bazel
++++ b/Mojo/stdlib/test/net/BUILD.bazel
+@@ -7,6 +7,7 @@ mojo_cabi_test(
+     platforms = [
+         "linux",
+         "macos",
++        "freebsd",
+     ],
+ )
+ 
+@@ -19,3 +20,8 @@ mojo_cabi_test(
+     name = "abi_macos",
+     platforms = ["macos"],
+ )
++
++mojo_cabi_test(
++    name = "abi_freebsd",
++    platforms = ["freebsd"],
++)
+diff --git a/Mojo/stdlib/test/net/abi_unix/__init__.mojo b/Mojo/stdlib/test/net/abi_unix/__init__.mojo
+index 24578ef..96844c2 100644
+--- a/Mojo/stdlib/test/net/abi_unix/__init__.mojo
++++ b/Mojo/stdlib/test/net/abi_unix/__init__.mojo
+@@ -10,7 +10,7 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ # ===----------------------------------------------------------------------=== #
+-"""C ABI manifest: the `std.net._sys` mirrors shared by Linux and macOS.
++"""C ABI manifest: the `std.net._sys` mirrors shared by Linux, macOS and FreeBSD.
+ 
+ Struct mirrors carry their C names verbatim, so their type list needs no
+ name column; type aliases carry their C name in an `AbiTypedef` row,
+diff --git a/Mojo/stdlib/test/python/BUILD.bazel b/Mojo/stdlib/test/python/BUILD.bazel
+index 4d1aac9..bc684c3 100644
+--- a/Mojo/stdlib/test/python/BUILD.bazel
++++ b/Mojo/stdlib/test/python/BUILD.bazel
+@@ -52,8 +52,12 @@ _NUMPY_TESTS = [
+         }),
+         deps = [
+             "@mojo//:std",
+-            requirement("numpy"),
+-        ],
++        ] + select({
++            # The native interpreter uses the ports-provided NumPy. Upstream
++            # wheels have no FreeBSD ABI; the port declares a test dependency.
++            "@platforms//os:freebsd": [],
++            "//conditions:default": [requirement("numpy")],
++        }),
+     )
+     for src in _NUMPY_TESTS
+     for version in PYTHON_VERSIONS_DOTTED
+diff --git a/Mojo/stdlib/test/sys/BUILD.bazel b/Mojo/stdlib/test/sys/BUILD.bazel
+index 1e7a5e4..f1b2c0b 100644
+--- a/Mojo/stdlib/test/sys/BUILD.bazel
++++ b/Mojo/stdlib/test/sys/BUILD.bazel
+@@ -14,6 +14,7 @@ _LIT_TESTS = [
+ ]
+ 
+ _PLATFORM_CONSTRAINTS = {
++    "test_freebsd_target.mojo": ["@platforms//os:freebsd"],
+     "test_aarch64_target.mojo": ["@platforms//os:macos"],  # TODO (17471): Not all aarch64 have neon, so we need to guard against that, for now just require Apple Silicon.
+     "test_linux_target.mojo": ["@platforms//os:linux"],
+     "test_macos_target.mojo": ["@platforms//os:macos"],
+diff --git a/Mojo/stdlib/test/sys/test_c_types.mojo b/Mojo/stdlib/test/sys/test_c_types.mojo
+index 2c2f458..b5da2cf 100644
+--- a/Mojo/stdlib/test/sys/test_c_types.mojo
++++ b/Mojo/stdlib/test/sys/test_c_types.mojo
+@@ -25,7 +25,9 @@ from std.testing import TestSuite
+ 
+ def test_c_int_type() raises:
+     if is_64bit() and (
+-        CompilationTarget.is_macos() or CompilationTarget.is_linux()
++        CompilationTarget.is_macos()
++        or CompilationTarget.is_linux()
++        or CompilationTarget.is_freebsd()
+     ):
+         # `int` is always 32 bits on the modern 64-bit OSes.
+         assert_equal(c_int.dtype, DType.int32)
+@@ -35,9 +37,11 @@ def test_c_int_type() raises:
+ 
+ def test_c_long_types() raises:
+     if is_64bit() and (
+-        CompilationTarget.is_macos() or CompilationTarget.is_linux()
++        CompilationTarget.is_macos()
++        or CompilationTarget.is_linux()
++        or CompilationTarget.is_freebsd()
+     ):
+-        # `long` is 64 bits on macOS and Linux.
++        # These targets use the LP64 data model.
+         assert_equal(c_long.dtype, DType.int64)
+         assert_equal(c_ulong.dtype, DType.uint64)
+     else:
+@@ -46,7 +50,9 @@ def test_c_long_types() raises:
+ 
+ def test_c_long_long_types() raises:
+     if is_64bit() and (
+-        CompilationTarget.is_macos() or CompilationTarget.is_linux()
++        CompilationTarget.is_macos()
++        or CompilationTarget.is_linux()
++        or CompilationTarget.is_freebsd()
+     ):
+         assert_equal(c_long_long.dtype, DType.int64)
+         assert_equal(c_ulong_long.dtype, DType.uint64)
+diff --git a/Mojo/stdlib/test/sys/test_dlhandle.mojo b/Mojo/stdlib/test/sys/test_dlhandle.mojo
+index a63c19d..f5480b5 100644
+--- a/Mojo/stdlib/test/sys/test_dlhandle.mojo
++++ b/Mojo/stdlib/test/sys/test_dlhandle.mojo
+@@ -30,7 +30,9 @@ def _load_libc() raises -> OwnedDLHandle:
+             return OwnedDLHandle("libc.so.6")  # glibc
+         except:
+             pass
+-        return OwnedDLHandle("libc.so")  # musl / BSD
++        return OwnedDLHandle("libc.so")  # musl
++    elif CompilationTarget.is_freebsd():
++        return OwnedDLHandle("libc.so.7")
+     elif CompilationTarget.is_macos():
+         return OwnedDLHandle("/usr/lib/system/libsystem_c.dylib")
+     else:
+@@ -51,6 +53,8 @@ def _load_libm() raises -> OwnedDLHandle:
+             pass
+         # musl folds math into libc.
+         return _load_libc()
++    elif CompilationTarget.is_freebsd():
++        return OwnedDLHandle("libm.so.5")
+     else:
+         # On macOS, math symbols are available through libSystem / libc.
+         return _load_libc()
+@@ -72,122 +76,41 @@ def test_owned_dlhandle_invalid_path_obj() raises:
+ 
+ 
+ def test_owned_dlhandle_load_valid_library() raises:
+-    try:
+-        # Try common locations for libc
+-        var lib = OwnedDLHandle("libc.so.6")  # Linux
+-        assert_true(lib.__bool__(), "Library handle should be valid")
+-    except:
+-        try:
+-            var lib = OwnedDLHandle("libc.so")  # Some Linux systems
+-            assert_true(lib.__bool__(), "Library handle should be valid")
+-        except:
+-            try:
+-                var lib = OwnedDLHandle(
+-                    "/usr/lib/system/libsystem_c.dylib"
+-                )  # macOS
+-                assert_true(lib.__bool__(), "Library handle should be valid")
+-            except:
+-                # If none work, skip this test
+-                print(
+-                    "Warning: Could not find a standard C library to test with"
+-                )
++    var lib = _load_libc()
++    assert_true(lib.__bool__(), "Library handle should be valid")
+ 
+ 
+ def test_owned_dlhandle_check_symbol() raises:
+-    try:
+-        var lib = OwnedDLHandle("libc.so.6")
+-        # Common C library functions that should exist
+-        assert_true(lib.check_symbol("printf"), "printf should exist in libc")
+-        assert_true(lib.check_symbol("malloc"), "malloc should exist in libc")
+-    except:
+-        try:
+-            var lib = OwnedDLHandle("libc.so")
+-            assert_true(
+-                lib.check_symbol("printf"), "printf should exist in libc"
+-            )
+-        except:
+-            # Skip if we can't load libc
+-            print("Warning: Could not load libc for symbol test")
++    var lib = _load_libc()
++    assert_true(lib.check_symbol("printf"), "printf should exist in libc")
++    assert_true(lib.check_symbol("malloc"), "malloc should exist in libc")
+ 
+ 
+ def test_owned_dlhandle_borrow() raises:
+-    """Test that borrow() returns a valid DLHandle reference."""
+-    try:
+-        var lib = OwnedDLHandle("libc.so.6")
+-        var borrowed = lib.borrow()
+-        # borrowed should be a valid DLHandle
+-        assert_true(borrowed.__bool__(), "Borrowed handle should be valid")
+-        assert_true(
+-            borrowed.check_symbol("printf"),
+-            "Borrowed handle should access symbols",
+-        )
+-    except:
+-        try:
+-            var lib = OwnedDLHandle("libc.so")
+-            var borrowed = lib.borrow()
+-            assert_true(borrowed.__bool__(), "Borrowed handle should be valid")
+-        except:
+-            # Skip if we can't load libc
+-            print("Warning: Could not load libc for borrow test")
++    var lib = _load_libc()
++    var borrowed = lib.borrow()
++    assert_true(borrowed.__bool__(), "Borrowed handle should be valid")
++    assert_true(
++        borrowed.check_symbol("printf"),
++        "Borrowed handle should access symbols",
++    )
+ 
+ 
+ def test_owned_dlhandle_global_symbols() raises:
+-    """Test loading global symbols from current process."""
+-    try:
+-        # Load symbols from the current process
+-        var lib = OwnedDLHandle()
+-        assert_true(lib.__bool__(), "Global symbol handle should be valid")
+-    except:
+-        # This might fail on some systems
+-        print("Warning: Could not load global symbols")
++    var lib = OwnedDLHandle()
++    assert_true(lib.__bool__(), "Global symbol handle should be valid")
+ 
+ 
+ def test_owned_dlhandle_get_symbol_missing() raises:
+-    """Test that get_symbol returns None for a nonexistent symbol."""
+-
+-    def _test_with_lib(lib: OwnedDLHandle) raises:
+-        var result = lib.get_symbol[NoneType](
+-            "this_symbol_does_not_exist_xyz_42"
+-        )
+-        assert_true(not result, "Missing symbol should return None")
+-
+-    try:
+-        _test_with_lib(OwnedDLHandle("libc.so.6"))
+-    except:
+-        try:
+-            _test_with_lib(OwnedDLHandle("libc.so"))
+-        except:
+-            try:
+-                _test_with_lib(
+-                    OwnedDLHandle("/usr/lib/system/libsystem_c.dylib")
+-                )
+-            except:
+-                print(
+-                    "Warning: Could not load a standard C library to test with"
+-                )
++    var lib = _load_libc()
++    var result = lib.get_symbol[NoneType]("this_symbol_does_not_exist_xyz_42")
++    assert_true(not result, "Missing symbol should return None")
+ 
+ 
+ def test_owned_dlhandle_get_symbol_found() raises:
+-    """Test that get_symbol returns a value for an existing symbol."""
+-
+-    def _test_with_lib(lib: OwnedDLHandle) raises:
+-        var result = lib.get_symbol[NoneType]("printf")
+-        assert_true(Bool(result), "Existing symbol should return a value")
+-
+-    try:
+-        _test_with_lib(OwnedDLHandle("libc.so.6"))
+-    except:
+-        try:
+-            _test_with_lib(OwnedDLHandle("libc.so"))
+-        except:
+-            try:
+-                _test_with_lib(
+-                    OwnedDLHandle("/usr/lib/system/libsystem_c.dylib")
+-                )
+-            except:
+-                print(
+-                    "Warning: Could not load a standard C library to test with"
+-                )
++    var lib = _load_libc()
++    var result = lib.get_symbol[NoneType]("printf")
++    assert_true(Bool(result), "Existing symbol should return a value")
+ 
+ 
+ def test_owned_dlhandle_get_function_keepalive() raises:
+@@ -340,19 +263,12 @@ def test_owned_dlhandle_call_struct_by_value() raises:
+ 
+ 
+ def test_owned_dlhandle_automatic_cleanup() raises:
+-    # This test primarily verifies that the code compiles and runs
+-    # without crashes. The actual cleanup happens automatically.
+-
+     @inline(.always)
+-    def create_and_destroy_handle():
+-        try:
+-            var lib = OwnedDLHandle("libc.so.6")
+-            _ = lib.check_symbol("printf")
+-            # lib will be automatically closed here when it goes out of scope
+-        except:
+-            pass
++    def create_and_destroy_handle() raises:
++        var lib = _load_libc()
++        assert_true(lib.check_symbol("printf"))
++        # The owned handle closes when it goes out of scope.
+ 
+-    # Call the function multiple times to ensure cleanup works
+     create_and_destroy_handle()
+     create_and_destroy_handle()
+     create_and_destroy_handle()
+diff --git a/Mojo/stdlib/test/sys/test_ffi.mojo b/Mojo/stdlib/test/sys/test_ffi.mojo
+index 14ab4db..d263f58 100644
+--- a/Mojo/stdlib/test/sys/test_ffi.mojo
++++ b/Mojo/stdlib/test/sys/test_ffi.mojo
+@@ -266,6 +266,107 @@ comptime error_message_macos: List[Tuple[ErrNo, String]] = [
+ ]
+ 
+ 
++# Native FreeBSD libc messages in the C locale.
++comptime error_message_freebsd: List[Tuple[ErrNo, String]] = [
++    (ErrNo.SUCCESS, "No error: 0"),
++    (ErrNo.EPERM, "Operation not permitted"),
++    (ErrNo.ENOENT, "No such file or directory"),
++    (ErrNo.ESRCH, "No such process"),
++    (ErrNo.EINTR, "Interrupted system call"),
++    (ErrNo.EIO, "Input/output error"),
++    (ErrNo.ENXIO, "Device not configured"),
++    (ErrNo.E2BIG, "Argument list too long"),
++    (ErrNo.ENOEXEC, "Exec format error"),
++    (ErrNo.EBADF, "Bad file descriptor"),
++    (ErrNo.ECHILD, "No child processes"),
++    (ErrNo.EAGAIN, "Resource temporarily unavailable"),
++    (ErrNo.ENOMEM, "Cannot allocate memory"),
++    (ErrNo.EACCES, "Permission denied"),
++    (ErrNo.EFAULT, "Bad address"),
++    (ErrNo.ENOTBLK, "Block device required"),
++    (ErrNo.EBUSY, "Device busy"),
++    (ErrNo.EEXIST, "File exists"),
++    (ErrNo.EXDEV, "Cross-device link"),
++    (ErrNo.ENODEV, "Operation not supported by device"),
++    (ErrNo.ENOTDIR, "Not a directory"),
++    (ErrNo.EISDIR, "Is a directory"),
++    (ErrNo.EINVAL, "Invalid argument"),
++    (ErrNo.ENFILE, "Too many open files in system"),
++    (ErrNo.EMFILE, "Too many open files"),
++    (ErrNo.ENOTTY, "Inappropriate ioctl for device"),
++    (ErrNo.ETXTBSY, "Text file busy"),
++    (ErrNo.EFBIG, "File too large"),
++    (ErrNo.ENOSPC, "No space left on device"),
++    (ErrNo.ESPIPE, "Illegal seek"),
++    (ErrNo.EROFS, "Read-only file system"),
++    (ErrNo.EMLINK, "Too many links"),
++    (ErrNo.EPIPE, "Broken pipe"),
++    (ErrNo.EDOM, "Numerical argument out of domain"),
++    (ErrNo.ERANGE, "Result too large"),
++    (ErrNo.EDEADLK, "Resource deadlock avoided"),
++    (ErrNo.ENAMETOOLONG, "File name too long"),
++    (ErrNo.ENOLCK, "No locks available"),
++    (ErrNo.ENOSYS, "Function not implemented"),
++    (ErrNo.ENOTEMPTY, "Directory not empty"),
++    (ErrNo.ELOOP, "Too many levels of symbolic links"),
++    (ErrNo.EWOULDBLOCK, "Resource temporarily unavailable"),
++    (ErrNo.ENOMSG, "No message of desired type"),
++    (ErrNo.EIDRM, "Identifier removed"),
++    (ErrNo.EREMOTE, "Too many levels of remote in path"),
++    (ErrNo.ENOLINK, "Link has been severed"),
++    (ErrNo.EPROTO, "Protocol error"),
++    (ErrNo.EMULTIHOP, "Multihop attempted"),
++    (ErrNo.EBADMSG, "Bad message"),
++    (ErrNo.EOVERFLOW, "Value too large to be stored in data type"),
++    (ErrNo.EILSEQ, "Illegal byte sequence"),
++    (ErrNo.EUSERS, "Too many users"),
++    (ErrNo.ENOTSOCK, "Socket operation on non-socket"),
++    (ErrNo.EDESTADDRREQ, "Destination address required"),
++    (ErrNo.EMSGSIZE, "Message too long"),
++    (ErrNo.EPROTOTYPE, "Protocol wrong type for socket"),
++    (ErrNo.ENOPROTOOPT, "Protocol not available"),
++    (ErrNo.EPROTONOSUPPORT, "Protocol not supported"),
++    (ErrNo.ESOCKTNOSUPPORT, "Socket type not supported"),
++    (ErrNo.EOPNOTSUPP, "Operation not supported"),
++    (ErrNo.EPFNOSUPPORT, "Protocol family not supported"),
++    (ErrNo.EAFNOSUPPORT, "Address family not supported by protocol family"),
++    (ErrNo.EADDRINUSE, "Address already in use"),
++    (ErrNo.EADDRNOTAVAIL, "Can't assign requested address"),
++    (ErrNo.ENETDOWN, "Network is down"),
++    (ErrNo.ENETUNREACH, "Network is unreachable"),
++    (ErrNo.ENETRESET, "Network dropped connection on reset"),
++    (ErrNo.ECONNABORTED, "Software caused connection abort"),
++    (ErrNo.ECONNRESET, "Connection reset by peer"),
++    (ErrNo.ENOBUFS, "No buffer space available"),
++    (ErrNo.EISCONN, "Socket is already connected"),
++    (ErrNo.ENOTCONN, "Socket is not connected"),
++    (ErrNo.ESHUTDOWN, "Can't send after socket shutdown"),
++    (ErrNo.ETOOMANYREFS, "Too many references: can't splice"),
++    (ErrNo.ETIMEDOUT, "Operation timed out"),
++    (ErrNo.ECONNREFUSED, "Connection refused"),
++    (ErrNo.EHOSTDOWN, "Host is down"),
++    (ErrNo.EHOSTUNREACH, "No route to host"),
++    (ErrNo.EALREADY, "Operation already in progress"),
++    (ErrNo.EINPROGRESS, "Operation now in progress"),
++    (ErrNo.ESTALE, "Stale NFS file handle"),
++    (ErrNo.EDQUOT, "Disc quota exceeded"),
++    (ErrNo.ECANCELED, "Operation canceled"),
++    (ErrNo.EOWNERDEAD, "Previous owner died"),
++    (ErrNo.ENOTRECOVERABLE, "State not recoverable"),
++    (ErrNo.ENOTSUP, "Operation not supported"),
++    (ErrNo.EPROCLIM, "Too many processes"),
++    (ErrNo.EBADRPC, "RPC struct is bad"),
++    (ErrNo.ERPCMISMATCH, "RPC version wrong"),
++    (ErrNo.EPROGUNAVAIL, "RPC prog. not avail"),
++    (ErrNo.EPROGMISMATCH, "Program version wrong"),
++    (ErrNo.EPROCUNAVAIL, "Bad procedure for program"),
++    (ErrNo.EFTYPE, "Inappropriate file type or format"),
++    (ErrNo.EAUTH, "Authentication error"),
++    (ErrNo.ENEEDAUTH, "Need authenticator"),
++    (ErrNo.ENOATTR, "Attribute not found"),
++]
++
++
+ def _test_errno_message[error_message: List[Tuple[ErrNo, String]]]() raises:
+     # Loop at runtime. A `comptime for` unrolls both asserts once per entry,
+     # which made this one of the slowest stdlib tests to compile.
+@@ -283,6 +384,8 @@ def test_errno_message() raises:
+         _test_errno_message[error_message_linux]()
+     elif CompilationTarget.is_macos():
+         _test_errno_message[error_message_macos]()
++    elif CompilationTarget.is_freebsd():
++        _test_errno_message[error_message_freebsd]()
+     else:
+         comptime assert False, "test not implemented for the platform"
+ 
+@@ -309,7 +412,7 @@ def test_errno() raises:
+ def test_rtld_flags() raises:
+     assert_equal(RTLD.LAZY, 1)
+     assert_equal(RTLD.NOW, 2)
+-    comptime if CompilationTarget.is_linux():
++    comptime if CompilationTarget.is_linux() or CompilationTarget.is_freebsd():
+         assert_equal(RTLD.LOCAL, 0)
+         assert_equal(RTLD.GLOBAL, 256)
+         assert_equal(RTLD.NODELETE, 4096)
+diff --git a/Mojo/test/kgen-doc/BUILD.bazel b/Mojo/test/kgen-doc/BUILD.bazel
+index daa3a24..ce6b4de 100644
+--- a/Mojo/test/kgen-doc/BUILD.bazel
++++ b/Mojo/test/kgen-doc/BUILD.bazel
+@@ -29,3 +29,39 @@ lit_tests(
+         "//Mojo/tools/kgen-doc",
+     ],
+ )
++
++# Native documentation regressions that do not depend on MAX.
++lit_tests(
++    name = "freebsd_cpu",
++    size = "large",
++    tags = ["exclusive"],
++    unique_suffix = "freebsd",
++    srcs = glob(
++        ["**/*.mojo"],
++        exclude = [
++            "mojo_doc.mojo",  # Requires MAX layout.
++            "dotted.pkg/**/*.mojo",
++            "test_std_mock/**/*.mojo",
++            "test_package/**/*.mojo",
++            "test_dir_package/**/*.mojo",
++            "test_doc_inline/**/*.mojo",
++        ],
++    ),
++    data = glob([
++        "dotted.pkg/**/*.mojo",
++        "test_std_mock/**/*.mojo",
++        "test_package/**/*.mojo",
++        "test_dir_package/**/*.mojo",
++        "test_doc_inline/**/*.mojo",
++    ]),
++    mojo_deps = [
++        "@mojo//:std",
++    ],
++    target_compatible_with = select({
++        "@platforms//os:freebsd": [],
++        "//conditions:default": ["@platforms//:incompatible"],
++    }),
++    tools = [
++        "//Mojo/tools/kgen-doc",
++    ],
++)
+diff --git a/Mojo/test/kgen/kgen-tool/kgen-emit-shared-linux.mlir b/Mojo/test/kgen/kgen-tool/kgen-emit-shared-linux.mlir
+index 8c6e492..2bc59e0 100644
+--- a/Mojo/test/kgen/kgen-tool/kgen-emit-shared-linux.mlir
++++ b/Mojo/test/kgen/kgen-tool/kgen-emit-shared-linux.mlir
+@@ -1,4 +1,4 @@
+-// REQUIRES: system-linux
++// REQUIRES: system-linux || system-freebsd
+ // RUN: kgen %s -emit=shared-lib -o %t
+ // RUN: llvm-objdump -t %t | FileCheck %s
+ 
+diff --git a/Mojo/test/kgen/kgen-tool/kgen-mcmodel-relocmodel.mlir b/Mojo/test/kgen/kgen-tool/kgen-mcmodel-relocmodel.mlir
+index 4f78ccc..bf1b744 100644
+--- a/Mojo/test/kgen/kgen-tool/kgen-mcmodel-relocmodel.mlir
++++ b/Mojo/test/kgen/kgen-tool/kgen-mcmodel-relocmodel.mlir
+@@ -1,4 +1,4 @@
+-// REQUIRES: x86_64-linux
++// REQUIRES: x86_64-linux || system-freebsd
+ 
+ // COM: check mcmodel=medium and large-data-threshold=2 options.
+ // RUN: kgen -emit=asm --mcmodel=medium --large-data-threshold=2 %s | FileCheck %s --check-prefix=CHECK-MCMODEL-LDTHRESHOLD
+diff --git a/Mojo/test/kgen/kgen-tool/kgen-target-cpu-no-host-features.mlir b/Mojo/test/kgen/kgen-tool/kgen-target-cpu-no-host-features.mlir
+index 3eb0cc9..1c76133 100644
+--- a/Mojo/test/kgen/kgen-tool/kgen-target-cpu-no-host-features.mlir
++++ b/Mojo/test/kgen/kgen-tool/kgen-target-cpu-no-host-features.mlir
+@@ -1,4 +1,4 @@
+-// REQUIRES: x86_64-linux
++// REQUIRES: x86_64-linux || system-freebsd
+ 
+ // Test that --target-cpu alone (no --target-triple) derives features from the
+ // specified CPU, not the host. This is how kgen_kernel Bazel rules invoke kgen.
+diff --git a/Mojo/test/kgen/kgen-tool/llvm-module-split/internal-cstr-global-variable.mlir b/Mojo/test/kgen/kgen-tool/llvm-module-split/internal-cstr-global-variable.mlir
+index 1348d84..0f82db6 100644
+--- a/Mojo/test/kgen/kgen-tool/llvm-module-split/internal-cstr-global-variable.mlir
++++ b/Mojo/test/kgen/kgen-tool/llvm-module-split/internal-cstr-global-variable.mlir
+@@ -1,6 +1,6 @@
+ // RUN: kgen-translate %s --mlir-to-llvmir -o %t
+ // RUN: llvm-module-split %t --per-func | FileCheck %s
+-// RUN: llvm-module-split %t --per-func --debug-only=llvm-module-split 2>&1 | FileCheck --check-prefix=CHECK-DEBUG %s
++// RUN: %if ASSERTIONS %{ llvm-module-split %t --per-func --debug-only=llvm-module-split 2>&1 | FileCheck --check-prefix=CHECK-DEBUG %s %}
+ 
+ llvm.mlir.global internal constant @str0("str0\00") {addr_space = 0 : i32, alignment = 16 : i64}
+ llvm.mlir.global internal constant @str1("str1\00") {addr_space = 0 : i32, alignment = 16 : i64}
+diff --git a/Mojo/test/mojo-integration/BUILD.bazel b/Mojo/test/mojo-integration/BUILD.bazel
+index 074ee11..5c20279 100644
+--- a/Mojo/test/mojo-integration/BUILD.bazel
++++ b/Mojo/test/mojo-integration/BUILD.bazel
+@@ -57,6 +57,8 @@ lit_tests(
+ 
+ lit_tests(
+     name = "test_std_srcs",
++    # This test imports the entire stdlib from source four times.
++    size = "large",
+     # This tests require the std, where other tests do
+     # not require them
+     srcs = glob(["*.test"]),
+@@ -77,3 +79,43 @@ lit_tests(
+         "//Mojo/tools/kgen-translate",
+     ],
+ )
++
++# The upstream aggregate acquires MAX/GPU dependencies for layout tests.
++# Exercise the remaining compiler integration regressions on native FreeBSD.
++lit_tests(
++    name = "freebsd_cpu",
++    size = "large",
++    # lit uses all host CPUs; run this aggregate after parallel build/test work.
++    tags = ["exclusive"],
++    srcs = glob(
++        ["**/*.mlir", "**/*.mojo"],
++        exclude = _DATA + [
++            "layout_copy_error.mojo",
++            "tile_tensor_binary_broadcast.mojo",
++            "tile_tensor_binary_broadcast_dim_mismatch_error.mojo",
++            "tile_tensor_binary_element_size_mismatch_error.mojo",
++            "tile_tensor_binary_mixed_storage_error.mojo",
++            "tile_tensor_binary_rank_error.mojo",
++            "tile_tensor_binary_shape_mismatch_error.mojo",
++            "tile_tensor_binary_static_offset_storage.mojo",
++        ],
++    ),
++    data = [":fixtures"],
++    mojo_deps = ["@mojo//:std"],
++    target_compatible_with = select({
++        "@platforms//os:freebsd": [],
++        "//conditions:default": ["@platforms//:incompatible"],
++    }),
++    tools = [
++        "//Mojo/tools/kgen",
++        "//Mojo/tools/kgen-opt",
++        "//Mojo/tools/kgen-translate",
++        "//Mojo/tools/llvm-module-split",
++        "//Mojo/tools/mojo",
++        "@llvm-project//llvm:llvm-as",
++        "@llvm-project//llvm:llvm-dis",
++        "@llvm-project//llvm:llvm-nm",
++        "@llvm-project//llvm:llvm-objdump",
++    ],
++    unique_suffix = "freebsd",
++)
+diff --git a/Mojo/test/mojo-integration/compile_offload/compile_shared.mojo b/Mojo/test/mojo-integration/compile_offload/compile_shared.mojo
+index 05de0cf..09b0e02 100644
+--- a/Mojo/test/mojo-integration/compile_offload/compile_shared.mojo
++++ b/Mojo/test/mojo-integration/compile_offload/compile_shared.mojo
+@@ -10,7 +10,7 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ # ===----------------------------------------------------------------------=== #
+-# REQUIRES: system-linux
++# REQUIRES: system-linux || system-freebsd
+ # RUN: %mojo %s -o %t
+ # RUN: llvm-objdump -t %t | FileCheck %s
+ 
+diff --git a/Mojo/test/mojo-integration/mojo_build_object.mojo b/Mojo/test/mojo-integration/mojo_build_object.mojo
+index 8ec63f8..0546219 100644
+--- a/Mojo/test/mojo-integration/mojo_build_object.mojo
++++ b/Mojo/test/mojo-integration/mojo_build_object.mojo
+@@ -11,7 +11,7 @@
+ # limitations under the License.
+ # ===----------------------------------------------------------------------=== #
+ 
+-# RUN: mkdir %t
++# RUN: rm -rf %t && mkdir %t
+ # RUN: %mojo-build %s -o %t/output.o --emit object
+ 
+ # COM: Check that `file` recognizes it as an object file
+diff --git a/Mojo/test/mojo-integration/mojo_build_object_library.mojo b/Mojo/test/mojo-integration/mojo_build_object_library.mojo
+index 88e58b1..bc53ba1 100644
+--- a/Mojo/test/mojo-integration/mojo_build_object_library.mojo
++++ b/Mojo/test/mojo-integration/mojo_build_object_library.mojo
+@@ -11,7 +11,7 @@
+ # limitations under the License.
+ # ===----------------------------------------------------------------------=== #
+ 
+-# RUN: mkdir %t
++# RUN: rm -rf %t && mkdir %t
+ # RUN: %mojo-build %s -o %t/output.o --emit object
+ 
+ # RUN: llvm-nm -U %t/output.o | FileCheck %s
+diff --git a/Mojo/test/mojo-integration/mojo_build_shared_lib.mojo b/Mojo/test/mojo-integration/mojo_build_shared_lib.mojo
+index 0aa229f..c2e78c1 100644
+--- a/Mojo/test/mojo-integration/mojo_build_shared_lib.mojo
++++ b/Mojo/test/mojo-integration/mojo_build_shared_lib.mojo
+@@ -11,7 +11,7 @@
+ # limitations under the License.
+ # ===----------------------------------------------------------------------=== #
+ 
+-# RUN: mkdir %t
++# RUN: rm -rf %t && mkdir %t
+ # COM: For sake of keeping the test commands simple, this hard-codes the use of
+ # COM:   `.dylib`, even on platforms like Linux where .so would otherwise be used.
+ # RUN: %mojo-build %s -o %t/example.dylib --emit shared-lib
+diff --git a/Mojo/test/mojo-integration/stack_trace_raising_main_terminated.mojo b/Mojo/test/mojo-integration/stack_trace_raising_main_terminated.mojo
+index 8ed3711..e79c317 100644
+--- a/Mojo/test/mojo-integration/stack_trace_raising_main_terminated.mojo
++++ b/Mojo/test/mojo-integration/stack_trace_raising_main_terminated.mojo
+@@ -56,17 +56,19 @@ def main() raises:
+ # O3-FULL: #{{.*}} stack_trace_raising_main_terminated{{.*}}::main() {{.*}}/stack_trace_raising_main_terminated.mojo:{{.*}}:{{.*}}
+ # O3-FULL: #{{.*}} std::builtin::_startup::__wrap_and_execute_raising_main{{.*}}raises{{.*}}main() {{.*}}_startup.mojo:{{.*}}:{{.*}}
+ 
+-# O3-NONE: #{{.*}} llvm::sys::PrintStackTrace(llvm::raw_ostream&, int) {{.*}}Signals
+-# O3-NONE: #{{.*}} llvm::sys::RunSignalHandlers() {{.*}}Signals.cpp
++# C++ runtimes without line tables identify these frames by their shared
++# library. Keep checking Mojo source locations below when debug info is emitted.
++# O3-NONE: #{{.*}} llvm::sys::PrintStackTrace(llvm::raw_ostream&, int) {{.*(Signals|libMSupportGlobals[.]so)}}
++# O3-NONE: #{{.*}} llvm::sys::RunSignalHandlers() {{.*(Signals[.]cpp|libMSupportGlobals[.]so)}}
+ # O3-NONE: #{{.*}} main
+ 
+-# O0-FULL: #{{.*}} llvm::sys::PrintStackTrace(llvm::raw_ostream&, int) {{.*}}Signals
+-# O0-FULL: #{{.*}} llvm::sys::RunSignalHandlers() {{.*}}Signals.cpp
++# O0-FULL: #{{.*}} llvm::sys::PrintStackTrace(llvm::raw_ostream&, int) {{.*(Signals|libMSupportGlobals[.]so)}}
++# O0-FULL: #{{.*}} llvm::sys::RunSignalHandlers() {{.*(Signals[.]cpp|libMSupportGlobals[.]so)}}
+ # O0-FULL: #{{.*}} stack_trace_raising_main_terminated{{.*}}::main() {{.*}}/stack_trace_raising_main_terminated.mojo:{{.*}}:{{.*}}
+ # O0-FULL: #{{.*}} std::builtin::_startup::__wrap_and_execute_raising_main{{.*}}raises{{.*}}main() {{.*}}_startup.mojo:{{.*}}:{{.*}}
+ 
+-# O0-NONE: #{{.*}} llvm::sys::PrintStackTrace(llvm::raw_ostream&, int) {{.*}}Signals
+-# O0-NONE: #{{.*}} llvm::sys::RunSignalHandlers() {{.*}}Signals.cpp
++# O0-NONE: #{{.*}} llvm::sys::PrintStackTrace(llvm::raw_ostream&, int) {{.*(Signals|libMSupportGlobals[.]so)}}
++# O0-NONE: #{{.*}} llvm::sys::RunSignalHandlers() {{.*(Signals[.]cpp|libMSupportGlobals[.]so)}}
+ # O0-NONE: #{{.*}} stack_trace_raising_main_terminated{{.*}}::main() stack_trace_raising_main_terminated.mojo:{{.*}}:{{.*}}
+ # O0-NONE: #{{.*}} std::builtin::_startup::__wrap_and_execute_raising_main{{.*}}raises{{.*}}main()
+ # O0-NONE: #{{.*}} main
+diff --git a/Mojo/test/mojo-integration/stack_trace_terminated.mojo b/Mojo/test/mojo-integration/stack_trace_terminated.mojo
+index 069dbaa..08f71c2 100644
+--- a/Mojo/test/mojo-integration/stack_trace_terminated.mojo
++++ b/Mojo/test/mojo-integration/stack_trace_terminated.mojo
+@@ -56,17 +56,19 @@ def main():
+ # O3-FULL: #{{.*}} stack_trace_terminated::main() {{.*}}/stack_trace_terminated.mojo:{{.*}}:{{.*}}
+ # O3-FULL: #{{.*}} std::builtin::_startup::__wrap_and_execute_main
+ 
+-# O3-NONE: #{{.*}} llvm::sys::PrintStackTrace(llvm::raw_ostream&, int) {{.*}}Signals
+-# O3-NONE: #{{.*}} llvm::sys::RunSignalHandlers() {{.*}}Signals.cpp
++# C++ runtimes without line tables identify these frames by their shared
++# library. Keep checking Mojo source locations below when debug info is emitted.
++# O3-NONE: #{{.*}} llvm::sys::PrintStackTrace(llvm::raw_ostream&, int) {{.*(Signals|libMSupportGlobals[.]so)}}
++# O3-NONE: #{{.*}} llvm::sys::RunSignalHandlers() {{.*(Signals[.]cpp|libMSupportGlobals[.]so)}}
+ # O3-NONE: #{{.*}} main
+ 
+-# O0-FULL: #{{.*}} llvm::sys::PrintStackTrace(llvm::raw_ostream&, int) {{.*}}Signals
+-# O0-FULL: #{{.*}} llvm::sys::RunSignalHandlers() {{.*}}Signals.cpp
++# O0-FULL: #{{.*}} llvm::sys::PrintStackTrace(llvm::raw_ostream&, int) {{.*(Signals|libMSupportGlobals[.]so)}}
++# O0-FULL: #{{.*}} llvm::sys::RunSignalHandlers() {{.*(Signals[.]cpp|libMSupportGlobals[.]so)}}
+ # O0-FULL: #{{.*}} stack_trace_terminated::main() {{.*}}/stack_trace_terminated.mojo:{{.*}}:{{.*}}
+ # O0-FULL: #{{.*}} std::builtin::_startup::__wrap_and_execute_main
+ 
+-# O0-NONE: #{{.*}} llvm::sys::PrintStackTrace(llvm::raw_ostream&, int) {{.*}}Signals
+-# O0-NONE: #{{.*}} llvm::sys::RunSignalHandlers() {{.*}}Signals.cpp
++# O0-NONE: #{{.*}} llvm::sys::PrintStackTrace(llvm::raw_ostream&, int) {{.*(Signals|libMSupportGlobals[.]so)}}
++# O0-NONE: #{{.*}} llvm::sys::RunSignalHandlers() {{.*(Signals[.]cpp|libMSupportGlobals[.]so)}}
+ # O0-NONE: #{{.*}} stack_trace_terminated::main() stack_trace_terminated.mojo:{{.*}}:{{.*}}
+ # O0-NONE: #{{.*}} std::builtin::_startup::__wrap_and_execute_main
+ # O0-NONE: #{{.*}} main
+diff --git a/Mojo/test/mojo-parser/import/import_bad_symlink.mojo b/Mojo/test/mojo-parser/import/import_bad_symlink.mojo
+index 7672c99..6b6e71c 100644
+--- a/Mojo/test/mojo-parser/import/import_bad_symlink.mojo
++++ b/Mojo/test/mojo-parser/import/import_bad_symlink.mojo
+@@ -11,7 +11,7 @@
+ # limitations under the License.
+ # ===----------------------------------------------------------------------=== #
+ 
+-# RUN: mkdir -p %t
++# RUN: rm -rf %t && mkdir -p %t
+ # RUN: ln -s does-not-exist %t/non_existent_package.mojo
+ # RUN: %parse-mojo-isolated -verify-diagnostics -I=%t %s
+ 
+diff --git a/Mojo/test/mojo-tool/BUILD.bazel b/Mojo/test/mojo-tool/BUILD.bazel
+index 26f8cd7..97f10ae 100644
+--- a/Mojo/test/mojo-tool/BUILD.bazel
++++ b/Mojo/test/mojo-tool/BUILD.bazel
+@@ -56,3 +56,40 @@ lit_tests(
+         "//Mojo/tools/mblack",
+     ],
+ )
++
++# Exercise the CPU driver without requiring the MAX SDK or debugger tools.
++lit_tests(
++    name = "freebsd_cpu",
++    size = "large",
++    # lit uses all host CPUs; run this aggregate after parallel build/test work.
++    tags = ["exclusive"],
++    srcs = glob(
++        [
++            "build/*.mojo",
++            "doc/*.mojo",
++            "*.mojo",
++            "demangle/*.mojo",
++            "package/*.mojo",
++            "package/*.test",
++            "run/*.mojo",
++        ],
++        exclude = ["build/functions_in_module_escaped_name.mojo"],  # MAX layout
++    ),
++    data = glob([
++        "**/inputs/**",
++        "package/test_package*/**",
++    ]),
++    mojo_deps = ["@mojo//:std"],
++    target_compatible_with = select({
++        "@platforms//os:freebsd": [],
++        "//conditions:default": ["@platforms//:incompatible"],
++    }),
++    tools = [
++        "//Mojo/tools/kgen",
++        "//Mojo/tools/kgen-opt",
++        "//Mojo/tools/mojo",
++        "@llvm-project//llvm:llvm-as",
++        "@llvm-project//llvm:llvm-objdump",
++    ],
++    unique_suffix = "freebsd",
++)
+diff --git a/Mojo/test/mojo-tool/build/mojo_build_fixit.mojo b/Mojo/test/mojo-tool/build/mojo_build_fixit.mojo
+index bdd2a85..a45c82b 100644
+--- a/Mojo/test/mojo-tool/build/mojo_build_fixit.mojo
++++ b/Mojo/test/mojo-tool/build/mojo_build_fixit.mojo
+@@ -11,18 +11,19 @@
+ # limitations under the License.
+ # ===----------------------------------------------------------------------=== #
+ 
+-# RUN: %mojo-build --experimental-fixit %s | FileCheck %s --check-prefix=AUTO-FIXIT
+-# RUN: %mojo-build --experimental-fixit %s | FileCheck %s --check-prefix=NO-FIXIT
++# RUN: cp %s %t.mojo
++# RUN: %mojo-build --experimental-fixit %t.mojo | FileCheck %s --check-prefix=AUTO-FIXIT
++# RUN: %mojo-build --experimental-fixit %t.mojo | FileCheck %s --check-prefix=NO-FIXIT
+ 
+ # AUTO-FIXIT: Fixits applied.
+ # NO-FIXIT: No fixits to apply.
+ 
+ # After applying the fixits, the build should succeed.
+-# RUN: %mojo-build %s
++# RUN: %mojo-build %t.mojo
+ 
+ # The `grep` is used to remove the `CHECK` lines from the output so FileCheck
+ # doesn't match on its own directives.
+-# RUN: cat %s | grep -v "# CHECK" | FileCheck %s
++# RUN: cat %t.mojo | grep -v "# CHECK" | FileCheck %s
+ 
+ 
+ # CHECK-LABEL: def old_origin_of
+diff --git a/Mojo/test/mojo-tool/build/test_mcmodel_relocmodel_cli.mojo b/Mojo/test/mojo-tool/build/test_mcmodel_relocmodel_cli.mojo
+index 43255ab..25c8d6a 100644
+--- a/Mojo/test/mojo-tool/build/test_mcmodel_relocmodel_cli.mojo
++++ b/Mojo/test/mojo-tool/build/test_mcmodel_relocmodel_cli.mojo
+@@ -11,7 +11,7 @@
+ # limitations under the License.
+ # ===----------------------------------------------------------------------=== #
+ 
+-# REQUIRES: x86_64-linux
++# REQUIRES: x86_64-linux || system-freebsd
+ # COM: This check only makes sense for generating an ELF object file.
+ # RUN: %mojo-build %s --mcmodel=medium --large-data-threshold=2 -o %t
+ # RUN: llvm-objdump %t -t | FileCheck %s
+diff --git a/Mojo/test/mojo-tool/package/mojo_package_fixit.mojo b/Mojo/test/mojo-tool/package/mojo_package_fixit.mojo
+index 637c271..918b2d6 100644
+--- a/Mojo/test/mojo-tool/package/mojo_package_fixit.mojo
++++ b/Mojo/test/mojo-tool/package/mojo_package_fixit.mojo
+@@ -11,16 +11,17 @@
+ # limitations under the License.
+ # ===----------------------------------------------------------------------=== #
+ 
+-# RUN: mojo precompile --experimental-fixit %S/test_package_fixit | FileCheck %s --check-prefix=AUTO-FIXIT
+-# RUN: mojo precompile --experimental-fixit %S/test_package_fixit | FileCheck %s --check-prefix=NO-FIXIT
++# RUN: rm -rf %t.pkg && cp -RL %S/test_package_fixit %t.pkg
++# RUN: mojo precompile --experimental-fixit %t.pkg | FileCheck %s --check-prefix=AUTO-FIXIT
++# RUN: mojo precompile --experimental-fixit %t.pkg | FileCheck %s --check-prefix=NO-FIXIT
+ 
+ # AUTO-FIXIT: Fixits applied.
+ # NO-FIXIT: No fixits to apply.
+ 
+ # After applying the fixits, the build should succeed.
+-# RUN: mojo precompile %S/test_package_fixit -o test_package_fixit.mojoc
++# RUN: mojo precompile %t.pkg -o test_package_fixit.mojoc
+ 
+ # The `grep` is used to remove the `CHECK` lines from the output so FileCheck
+ # doesn't match on its own directives.
+-# RUN: cat %S/test_package_fixit/__init__.mojo | grep -v "# CHECK" | FileCheck %S/test_package_fixit/__init__.mojo
+-# RUN: cat %S/test_package_fixit/old_impl.mojo | grep -v "# CHECK" | FileCheck %S/test_package_fixit/old_impl.mojo
++# RUN: cat %t.pkg/__init__.mojo | grep -v "# CHECK" | FileCheck %S/test_package_fixit/__init__.mojo
++# RUN: cat %t.pkg/old_impl.mojo | grep -v "# CHECK" | FileCheck %S/test_package_fixit/old_impl.mojo
+diff --git a/Mojo/test/mojo-tool/run/mojo_run_fixit.mojo b/Mojo/test/mojo-tool/run/mojo_run_fixit.mojo
+index 0a4f7a5..95eafbc 100644
+--- a/Mojo/test/mojo-tool/run/mojo_run_fixit.mojo
++++ b/Mojo/test/mojo-tool/run/mojo_run_fixit.mojo
+@@ -11,18 +11,19 @@
+ # limitations under the License.
+ # ===----------------------------------------------------------------------=== #
+ 
+-# RUN: mojo run --experimental-fixit %s | FileCheck %s --check-prefix=AUTO-FIXIT
+-# RUN: mojo run --experimental-fixit %s | FileCheck %s --check-prefix=NO-FIXIT
++# RUN: cp %s %t.mojo
++# RUN: mojo run --experimental-fixit %t.mojo | FileCheck %s --check-prefix=AUTO-FIXIT
++# RUN: mojo run --experimental-fixit %t.mojo | FileCheck %s --check-prefix=NO-FIXIT
+ 
+ # AUTO-FIXIT: Fixits applied.
+ # NO-FIXIT: No fixits to apply.
+ 
+ # After applying the fixits, the build should succeed.
+-# RUN: mojo run %s
++# RUN: mojo run %t.mojo
+ 
+ # The `grep` is used to remove the `CHECK` lines from the output so FileCheck
+ # doesn't match on its own directives.
+-# RUN: cat %s | grep -v "# CHECK" | FileCheck %s
++# RUN: cat %t.mojo | grep -v "# CHECK" | FileCheck %s
+ 
+ 
+ # CHECK-LABEL: def old_origin_of
+diff --git a/Support/BUILD.bazel b/Support/BUILD.bazel
+index fa027c5..703c666 100644
+--- a/Support/BUILD.bazel
++++ b/Support/BUILD.bazel
+@@ -94,6 +94,7 @@ modular_cc_library(
+     ] + select({
+         "@platforms//os:macos": ["SHARED_LIBRARY_SUFFIX='\".dylib\"'"],
+         "@platforms//os:linux": ["SHARED_LIBRARY_SUFFIX='\".so\"'"],
++        "@platforms//os:freebsd": ["SHARED_LIBRARY_SUFFIX='\".so\"'"],
+     }),
+     deps = [
+         ":ConcurrentAppendingVector",
+@@ -137,6 +138,16 @@ modular_cc_library(
+     name = "BinaryID",
+     srcs = ["lib/BinaryID.cpp"],
+     hdrs = ["include/Support/BinaryID.h"],
++    # Match the upstream toolchain: each ELF image must keep its own lookup.
++    copts = select({
++        "@platforms//os:freebsd": ["-fvisibility=hidden"],
++        "//conditions:default": [],
++    }),
++    # FreeBSD's linker does not emit the ID required by getBinaryID by default.
++    linkopts = select({
++        "@platforms//os:freebsd": ["-Wl,--build-id=sha1"],
++        "//conditions:default": [],
++    }),
+     deps = [
+         "@llvm-project//llvm:Support",
+     ],
+@@ -348,11 +359,19 @@ modular_cc_library(
+         ":Base",
+         ":Configuration",
+         "//Config",
+-        "@crashpad//:client",
+         "@llvm-project//llvm:Support",
++        ":crashpad_client",
+     ],
+ )
+ 
++alias(
++    name = "crashpad_client",
++    actual = select({
++        "@platforms//os:freebsd": "//bazel/internal:empty_lib",
++        "//conditions:default": "@crashpad//:client",
++    }),
++)
++
+ modular_cc_library(
+     name = "Filesystem",
+     srcs = [
+@@ -1143,6 +1162,9 @@ modular_shared_library(
+         "@platforms//os:linux": [
+             "-Wl,--undefined=_ZN4mlir6detail22FallbackTypeIDResolver22registerImplicitTypeIDEN4llvm9StringRefE",
+         ],
++        "@platforms//os:freebsd": [
++            "-Wl,--undefined=_ZN4mlir6detail22FallbackTypeIDResolver22registerImplicitTypeIDEN4llvm9StringRefE",
++        ],
+         "@platforms//os:macos": [
+             "-Wl,-u,__ZN4mlir6detail22FallbackTypeIDResolver22registerImplicitTypeIDEN4llvm9StringRefE",
+         ],
+diff --git a/Support/include/Support/Log.h b/Support/include/Support/Log.h
+index 29e1e2d..f92e7e7 100644
+--- a/Support/include/Support/Log.h
++++ b/Support/include/Support/Log.h
+@@ -67,6 +67,7 @@
+ #include <string_view>
+ #include <thread>
+ #include <tuple>
++#include <type_traits>
+ #include <utility>
+ 
+ namespace M {
+@@ -214,10 +215,13 @@ struct LogRecord {
+   constexpr static size_t maxArgs = 8;
+   constexpr static size_t maxKVPairs = maxArgs / 2;
+   using Timestamp = std::chrono::time_point<std::chrono::system_clock>;
+-  // Mojo FFI mirrors Timestamp as Int64. If this fires, the platform's
+-  // system_clock uses a different rep type and the Mojo bindings need
+-  // revisiting.
+-  static_assert(std::is_same_v<Timestamp::clock::duration::rep, int64_t>);
++  // The FFI passes clock ticks as Int64, then constructs a duration from
++  // that value. Require the same signed integer range, not typedef identity:
++  // libc++ may use long long where the platform typedefs int64_t as long.
++  using TimestampRep = Timestamp::clock::duration::rep;
++  static_assert(std::is_integral_v<TimestampRep> &&
++                std::is_signed_v<TimestampRep> &&
++                sizeof(TimestampRep) == sizeof(int64_t));
+   // Four key-value pairs, since a pair occupies two arg slots.
+   Timestamp timestamp;
+   std::string_view fmtString;
+diff --git a/Support/include/Support/PlatformUtils.h b/Support/include/Support/PlatformUtils.h
+index bdef0d8..70b2ded 100644
+--- a/Support/include/Support/PlatformUtils.h
++++ b/Support/include/Support/PlatformUtils.h
+@@ -50,6 +50,10 @@
+ #define MODULAR_LINUX 1
+ #define MODULAR_MACOS 0
+ #define MODULAR_WINDOWS 0
++#elif defined(__FreeBSD__)
++#define MODULAR_LINUX 0
++#define MODULAR_MACOS 0
++#define MODULAR_WINDOWS 0
+ #else
+ #error "Could not determine platform"
+ #endif
+diff --git a/Support/lib/CPUCache.cpp b/Support/lib/CPUCache.cpp
+index c841126..6b10430 100644
+--- a/Support/lib/CPUCache.cpp
++++ b/Support/lib/CPUCache.cpp
+@@ -27,6 +27,10 @@
+ #include <system_error>
+ #include <utility>
+ 
++#if defined(__FreeBSD__) && defined(__x86_64__)
++#include <cpuid.h>
++#endif
++
+ #ifdef __APPLE__
+ #include <sys/sysctl.h>
+ #endif // __APPLE__
+@@ -85,7 +89,28 @@ readSmallFileFromDirFD(int dirFD, const char *relPath,
+ #endif // __linux__
+ 
+ M::ErrorOr<size_t> M::getHostCPUCacheSize(size_t cacheLevel) {
+-#if defined(__APPLE__)
++#if defined(__FreeBSD__)
++#if defined(__x86_64__)
++  // Deterministic cache parameters: AMD uses 0x8000001d, Intel leaf 4.
++  const unsigned leaf = __get_cpuid_max(0x80000000, nullptr) >= 0x8000001d
++                            ? 0x8000001d
++                            : 4;
++  for (unsigned index = 0; index < 32; ++index) {
++    unsigned eax, ebx, ecx, edx;
++    if (!__get_cpuid_count(leaf, index, &eax, &ebx, &ecx, &edx))
++      break;
++    const unsigned type = eax & 0x1f;
++    if (type == 0)
++      break;
++    if ((type == 1 || type == 3) && ((eax >> 5) & 7) == cacheLevel)
++      return (size_t((ebx >> 22) & 0x3ff) + 1) *
++             (((ebx >> 12) & 0x3ff) + 1) * ((ebx & 0xfff) + 1) *
++             (size_t(ecx) + 1);
++  }
++#endif
++  // Zero denotes unavailable cache information, as on Linux without sysfs.
++  return 0;
++#elif defined(__APPLE__)
+   size_t result;
+   size_t len = sizeof(result);
+   switch (cacheLevel) {
+diff --git a/Support/lib/CrashReporting/CrashReporting.cpp b/Support/lib/CrashReporting/CrashReporting.cpp
+index 522cca9..a1c2fdc 100644
+--- a/Support/lib/CrashReporting/CrashReporting.cpp
++++ b/Support/lib/CrashReporting/CrashReporting.cpp
+@@ -31,10 +31,12 @@
+ 
+ #include "Support/LLVMForwardDecls.h"
+ #include "Support/LogicalResult.h"
++#if !defined(__FreeBSD__)
+ #include "client/crash_report_database.h"
+ #include "client/crashpad_client.h"
+ #include "client/settings.h"
+ #include "client/simulate_crash.h" // IWYU pragma: keep (CRASHPAD_SIMULATE_CRASH)
++#endif
+ 
+ using namespace M;
+ 
+@@ -70,6 +72,9 @@ ErrorOr<std::filesystem::path> M::getCrashpadHandlerPath(Config *settings) {
+ 
+ static ErrorOrSuccess tryInitCrashpad(StringRef program, StringRef machineID,
+                                       StringRef sessionID, Config *settings) {
++#if defined(__FreeBSD__)
++  return Error("Crashpad is not supported on FreeBSD");
++#else
+   // Crashpad needs a few paths and other configuration bits:
+   //   - Path of the handler executable (This runs alongside the Mojo driver;
+   //     in case the driver crashes, the handler inspects the driver in its
+@@ -123,6 +128,7 @@ static ErrorOrSuccess tryInitCrashpad(StringRef program, StringRef machineID,
+           /*asynchronous_start=*/false))
+     return Error("crashpad failed to start handler");
+   return success();
++#endif
+ }
+ 
+ void M::initCrashpadForProgram(StringRef program, StringRef machineID,
+@@ -134,4 +140,10 @@ void M::initCrashpadForProgram(StringRef program, StringRef machineID,
+                  << error.getError() << "\n";
+ }
+ 
+-void M::generateNonFatalDump() { CRASHPAD_SIMULATE_CRASH(); }
++void M::generateNonFatalDump() {
++#if defined(__FreeBSD__)
++  llvm::errs() << "Crashpad nonfatal dumps are not supported on FreeBSD\n";
++#else
++  CRASHPAD_SIMULATE_CRASH();
++#endif
++}
+diff --git a/Support/lib/MArchTarget/Host.cpp b/Support/lib/MArchTarget/Host.cpp
+index cfdc124..7f41630 100644
+--- a/Support/lib/MArchTarget/Host.cpp
++++ b/Support/lib/MArchTarget/Host.cpp
+@@ -52,6 +52,13 @@
+ #include <sys/sysctl.h>
+ #endif // __APPLE__
+ 
++#ifdef __FreeBSD__
++#include <cerrno>
++#include <cstring>
++#include <sys/types.h>
++#include <sys/sysctl.h>
++#endif
++
+ #ifdef _MSC_VER
+ #include "llvm/Support/WindowsError.h"
+ #include <windows.h>
+@@ -65,8 +72,28 @@ using namespace M;
+ // CPU Model Info
+ //===----------------------------------------------------------------------===//
+ 
++#ifdef __FreeBSD__
++static ErrorOr<std::string> readFreeBSDSysctlString(const char *name) {
++  size_t len = 0;
++  if (sysctlbyname(name, nullptr, &len, nullptr, 0) == -1)
++    return Error(llvm::Twine("Unable to query ") + name + ": " + strerror(errno));
++  std::string value(len, '\0');
++  if (sysctlbyname(name, value.data(), &len, nullptr, 0) == -1)
++    return Error(llvm::Twine("Unable to read ") + name + ": " + strerror(errno));
++  value.resize(len);
++  if (!value.empty() && value.back() == '\0')
++    value.pop_back();
++  return value;
++}
++#endif
++
+ static ErrorOr<std::vector<std::string>> getAllHostCPUModelNames() {
+-#if defined(__APPLE__)
++#if defined(__FreeBSD__)
++  auto model = readFreeBSDSysctlString("hw.model");
++  if (model.isError())
++    return model.takeError();
++  return std::vector<std::string>{std::move(*model)};
++#elif defined(__APPLE__)
+   size_t len = 0;
+   if (sysctlbyname("machdep.cpu.brand_string", nullptr, &len, nullptr, 0) ==
+           -1 &&
+@@ -365,7 +392,13 @@ M::ErrorOr<HostMachineInfo> M::getHostMachineInfo() {
+ }
+ 
+ M::ErrorOr<bool> M::getHostIsInContainer() {
+-#if defined(__linux__)
++#if defined(__FreeBSD__)
++  int jailed = 0;
++  size_t len = sizeof(jailed);
++  if (sysctlbyname("security.jail.jailed", &jailed, &len, nullptr, 0) == -1)
++    return Error(llvm::Twine("Unable to query jail state: ") + strerror(errno));
++  return jailed != 0;
++#elif defined(__linux__)
+   llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> errOrBufCgroup =
+       llvm::MemoryBuffer::getFileAsStream("/proc/self/cgroup");
+   if (std::error_code ec = errOrBufCgroup.getError())
+@@ -403,7 +436,13 @@ M::ErrorOr<bool> M::getHostIsInContainer() {
+ }
+ 
+ M::ErrorOr<std::string> M::getHostTotalMemoryKB() {
+-#if defined(__APPLE__)
++#if defined(__FreeBSD__)
++  unsigned long bytes = 0;
++  size_t len = sizeof(bytes);
++  if (sysctlbyname("hw.physmem", &bytes, &len, nullptr, 0) == -1)
++    return Error(llvm::Twine("Unable to query hw.physmem: ") + strerror(errno));
++  return std::to_string(bytes / 1024);
++#elif defined(__APPLE__)
+   int mib[2] = {CTL_HW, HW_MEMSIZE};
+   int64_t bytes;
+   size_t len = sizeof(int64_t);
+@@ -433,7 +472,9 @@ M::ErrorOr<std::string> M::getHostTotalMemoryKB() {
+ }
+ 
+ M::ErrorOr<std::string> M::getHostOSVersion() {
+-#if defined(__APPLE__)
++#if defined(__FreeBSD__)
++  return readFreeBSDSysctlString("kern.osrelease");
++#elif defined(__APPLE__)
+   std::string osVersion;
+   auto procTriple = llvm::Triple(llvm::sys::getProcessTriple());
+   llvm::VersionTuple adjustedVersion;
+diff --git a/Support/lib/Random.cpp b/Support/lib/Random.cpp
+index eb5ed73..a40f580 100644
+--- a/Support/lib/Random.cpp
++++ b/Support/lib/Random.cpp
+@@ -15,6 +15,7 @@
+ #include "Support/ErrorOr.h"
+ #include "llvm/ADT/ArrayRef.h"
+ #include "llvm/ADT/Twine.h"
++#include <cstdlib>
+ 
+ #ifdef __linux__
+ #include <sys/random.h>
+@@ -46,7 +47,7 @@ SecureRandomBytesGenerator::~SecureRandomBytesGenerator() {
+ 
+ ErrorOrSuccess
+ SecureRandomBytesGenerator::getRandomBytes(MutableArrayRef<uint8_t> buf) {
+-#if defined(__APPLE__)
++#if defined(__APPLE__) || defined(__FreeBSD__)
+   arc4random_buf(buf.data(), buf.size());
+   return success();
+ #elif defined(__linux__)
+diff --git a/Support/lib/Threading/HWInfo.cpp b/Support/lib/Threading/HWInfo.cpp
+index 00aaab4..d6608ad 100644
+--- a/Support/lib/Threading/HWInfo.cpp
++++ b/Support/lib/Threading/HWInfo.cpp
+@@ -59,6 +59,12 @@
+ #include <sys/sysctl.h>
+ #endif
+ 
++#ifdef __FreeBSD__
++#include <sys/types.h>
++#include <sys/cpuset.h>
++#include <sys/sysctl.h>
++#endif
++
+ #include <filesystem>
+ 
+ #define DEBUG_TYPE "threading-hw-info"
+@@ -385,6 +391,14 @@ ErrorOr<CPUSystemInfo> CPUSystemInfo::get() {
+ }
+ 
+ size_t M::getNumPhysicalCores() {
++#ifdef __FreeBSD__
++  // LLVM has no physical-core query for FreeBSD and otherwise returns one.
++  int cores = 0;
++  size_t len = sizeof(cores);
++  if (sysctlbyname("kern.smp.cores", &cores, &len, nullptr, 0) == 0 &&
++      len == sizeof(cores) && cores > 0)
++    return static_cast<size_t>(cores);
++#endif
+   auto threadStrat = llvm::hardware_concurrency();
+   threadStrat.UseHyperThreads = false;
+   return threadStrat.compute_thread_count();
+@@ -659,9 +673,35 @@ static ErrorOr<NUMATopology> queryNumaTopology() {
+   for (auto &[node, buses] : topology.pciBusesPerNumaNode)
+     llvm::sort(buses);
+ 
++  return topology;
++#elif defined(__FreeBSD__)
++  int numDomains = 0;
++  size_t size = sizeof(numDomains);
++  if (sysctlbyname("vm.ndomains", &numDomains, &size, nullptr, 0) != 0 ||
++      size != sizeof(numDomains) || numDomains <= 0)
++    return Error("unable to query FreeBSD NUMA domains");
++
++  // Ask the kernel for each domain's CPU mask instead of inferring placement
++  // from CPU numbering. PCI locality remains unknown on this platform.
++  NUMATopology topology;
++  for (int node = 0; node < numDomains; ++node) {
++    cpuset_t cpus;
++    CPU_ZERO(&cpus);
++    if (cpuset_getaffinity(CPU_LEVEL_WHICH, CPU_WHICH_DOMAIN, node,
++                           sizeof(cpus), &cpus) != 0)
++      return Error("unable to query FreeBSD NUMA domain CPU mask");
++    topology.numaNodes.push_back(node);
++    auto &ids = topology.cpuIdsPerNumaNode[node];
++    for (size_t cpu = 0; cpu < CPU_SETSIZE; ++cpu) {
++      if (CPU_ISSET(cpu, &cpus)) {
++        ids.push_back(cpu);
++        topology.cpuIdToNumaNode[cpu] = node;
++      }
++    }
++  }
+   return topology;
+ #else
+-  return Error("NUMATopology is only supported on Linux x86");
++  return Error("NUMATopology is not supported by this build");
+ #endif
+ }
+ 
+diff --git a/Support/lib/Threading/ThreadAffinity.cpp b/Support/lib/Threading/ThreadAffinity.cpp
+index 8ab2242..e759d85 100644
+--- a/Support/lib/Threading/ThreadAffinity.cpp
++++ b/Support/lib/Threading/ThreadAffinity.cpp
+@@ -18,6 +18,14 @@
+ #include "llvm/ADT/STLFunctionalExtras.h"
+ #include "llvm/Support/DebugLog.h"
+ #include <cstddef>
++#include <cerrno>
++#include <cstring>
++
++#ifdef __FreeBSD__
++#include <sys/types.h>
++#include <sys/cpuset.h>
++#include <sys/domainset.h>
++#endif
+ 
+ #define DEBUG_TYPE "thread-affinity"
+ 
+@@ -137,8 +145,82 @@ runWithThreadAffinityLinux(size_t cpuID, llvm::function_ref<void()> &workFn) {
+ }
+ #endif
+ 
++#ifdef __FreeBSD__
++static Error affinityErrorFreeBSD(const char *operation) {
++  return Error(std::string(operation) + ": " + std::strerror(errno));
++}
++
++static ErrorOrSuccess setThreadAffinityFreeBSD(size_t cpuID) {
++  if (cpuID >= CPU_SETSIZE)
++    return Error("unable to set thread affinity, invalid CPU id");
++  cpuset_t original, selected;
++  if (cpuset_getaffinity(CPU_LEVEL_WHICH, CPU_WHICH_TID, -1,
++                         sizeof(original), &original) != 0)
++    return affinityErrorFreeBSD("unable to get thread execution affinity");
++  CPU_ZERO(&selected);
++  CPU_SET(cpuID, &selected);
++  if (cpuset_setaffinity(CPU_LEVEL_WHICH, CPU_WHICH_TID, -1,
++                         sizeof(selected), &selected) != 0)
++    return affinityErrorFreeBSD("unable to set thread execution affinity");
++
++  const auto &topology = NUMATopology::get();
++  int node = topology.isError() ? kAnyNumaNode
++                               : topology->getNumaNodeForCpuId(cpuID);
++  if (node != kAnyNumaNode) {
++    domainset_t domains;
++    DOMAINSET_ZERO(&domains);
++    if (node < 0 || node >= DOMAINSET_SETSIZE) {
++      cpuset_setaffinity(CPU_LEVEL_WHICH, CPU_WHICH_TID, -1,
++                         sizeof(original), &original);
++      return Error("NUMA domain exceeds native domain mask");
++    }
++    DOMAINSET_SET(node, &domains);
++    if (cpuset_setdomain(CPU_LEVEL_WHICH, CPU_WHICH_TID, -1,
++                         sizeof(domains), &domains,
++                         DOMAINSET_POLICY_PREFER) != 0) {
++      auto error = affinityErrorFreeBSD("unable to set thread memory policy");
++      cpuset_setaffinity(CPU_LEVEL_WHICH, CPU_WHICH_TID, -1,
++                         sizeof(original), &original);
++      return error;
++    }
++  }
++  return success();
++}
++
++static ErrorOrSuccess
++runWithThreadAffinityFreeBSD(size_t cpuID, llvm::function_ref<void()> workFn) {
++  cpuset_t originalCPUs;
++  domainset_t originalDomains;
++  int originalPolicy;
++  if (cpuset_getaffinity(CPU_LEVEL_WHICH, CPU_WHICH_TID, -1,
++                         sizeof(originalCPUs), &originalCPUs) != 0)
++    return affinityErrorFreeBSD("unable to save thread execution affinity");
++  if (cpuset_getdomain(CPU_LEVEL_WHICH, CPU_WHICH_TID, -1,
++                       sizeof(originalDomains), &originalDomains,
++                       &originalPolicy) != 0)
++    return affinityErrorFreeBSD("unable to save thread memory policy");
++  auto result = setThreadAffinityFreeBSD(cpuID);
++  if (result.isError())
++    return result;
++
++  // Like the Linux implementation, this runtime is built without exceptions.
++  workFn();
++  // Once work has run, report restoration failures through logging. Returning
++  // an error here would make the AsyncRT fallback execute the work twice.
++  if (cpuset_setdomain(CPU_LEVEL_WHICH, CPU_WHICH_TID, -1,
++                       sizeof(originalDomains), &originalDomains,
++                       originalPolicy) != 0)
++    LDBG() << "unable to restore thread memory policy: " << std::strerror(errno);
++  if (cpuset_setaffinity(CPU_LEVEL_WHICH, CPU_WHICH_TID, -1,
++                         sizeof(originalCPUs), &originalCPUs) != 0)
++    LDBG() << "unable to restore thread execution affinity: "
++           << std::strerror(errno);
++  return success();
++}
++#endif
++
+ bool M::haveThreadAffinity() {
+-#if HAVE_LINUX_SET_AFFINITY
++#if HAVE_LINUX_SET_AFFINITY || defined(__FreeBSD__)
+   return true;
+ #else
+   return false;
+@@ -148,6 +230,8 @@ bool M::haveThreadAffinity() {
+ ErrorOrSuccess M::setThreadAffinity(size_t cpuID) {
+ #if HAVE_LINUX_SET_AFFINITY
+   return setThreadAffinityLinux(cpuID);
++#elif defined(__FreeBSD__)
++  return setThreadAffinityFreeBSD(cpuID);
+ #else
+   return Error("setThreadAffinity is not supported by this build");
+ #endif // HAVE_LINUX_SET_AFFINITY
+@@ -157,6 +241,8 @@ ErrorOrSuccess M::runWithThreadAffinity(size_t cpuID,
+                                         llvm::function_ref<void()> workFn) {
+ #if HAVE_LINUX_SET_AFFINITY
+   return runWithThreadAffinityLinux(cpuID, workFn);
++#elif defined(__FreeBSD__)
++  return runWithThreadAffinityFreeBSD(cpuID, workFn);
+ #else
+   return Error("runWithThreadAffinity is not supported by this build");
+ #endif // HAVE_LINUX_SET_AFFINITY
+diff --git a/Support/test/BUILD.bazel b/Support/test/BUILD.bazel
+index 8cd58ab..edd5bf7 100644
+--- a/Support/test/BUILD.bazel
++++ b/Support/test/BUILD.bazel
+@@ -64,3 +64,33 @@ lit_tests(
+         "@crashpad//:modular-crashpad-handler",
+     ],
+ )
++
++# These regressions never invoke the optional Crashpad handler.
++lit_tests(
++    name = "freebsd_cpu",
++    size = "large",
++    tags = ["exclusive"],
++    unique_suffix = "freebsd",
++    srcs = glob([
++        "**/*.mlir",
++        "**/*.td",
++    ]),
++    custom_substitutions = {
++        "%driver-tblgen": "$(rlocationpath //Support/tools/driver-tblgen) -I $(dirname $(dirname $(dirname ../../../../$(location //Support:include/Support/Driver/DriverCommand.td)))) -I $(dirname $(dirname $(dirname ../../../../../$(rlocationpath @llvm-project//llvm:include/llvm/Option/OptParser.td))))",
++    },
++    data = [
++        "//Support:DriverCommandTdFiles",
++        "//Support:include/Support/Driver/DriverCommand.td",
++        "@llvm-project//llvm:include/llvm/Option/OptParser.td",
++    ],
++    target_compatible_with = select({
++        "@platforms//os:freebsd": [],
++        "//conditions:default": ["@platforms//:incompatible"],
++    }),
++    tools = [
++        "//Support/tools/build-info",
++        "//Support/tools/driver-tblgen",
++        "//Support/tools/support-dialect-opt",
++        "//Support/tools/system-info",
++    ],
++)
+diff --git a/Support/test/binary_id_test.sh b/Support/test/binary_id_test.sh
+index 1aadc12..e16ab8c 100755
+--- a/Support/test/binary_id_test.sh
++++ b/Support/test/binary_id_test.sh
+@@ -1,4 +1,4 @@
+-#!/bin/bash
++#!/usr/bin/env bash
+ ##===----------------------------------------------------------------------===##
+ # Copyright (c) 2026, Modular Inc. All rights reserved.
+ #
+diff --git a/Support/unittests/AlignedAllocTest.cpp b/Support/unittests/AlignedAllocTest.cpp
+index a36131a..5b043eb 100644
+--- a/Support/unittests/AlignedAllocTest.cpp
++++ b/Support/unittests/AlignedAllocTest.cpp
+@@ -14,6 +14,8 @@
+ #include "Support/AlignedAlloc.h"
+ 
+ #include "gtest/gtest.h"
++#include <cstdint>
++#include <cstring>
+ 
+ TEST(AlignedAlloc, uniquePtrAlignedShouldUseAlignedFreeDeleter) {
+   auto expectedDeleter = &M::alignedFree;
+@@ -22,3 +24,22 @@ TEST(AlignedAlloc, uniquePtrAlignedShouldUseAlignedFreeDeleter) {
+       M::makeAlignedUniquePtr<int>(M::kPreferredMemoryAlignment, size);
+   EXPECT_EQ(expectedDeleter, actual.get_deleter());
+ }
++
++TEST(AlignedAlloc, AlignmentAndWritableExtent) {
++  for (size_t alignment = 1; alignment <= 4096; alignment *= 2) {
++    for (size_t size : {size_t(0), size_t(1), size_t(7), size_t(17),
++                        size_t(4097), size_t(65537)}) {
++      auto *ptr = M::alignedAlloc(alignment, size);
++      if (size == 0 && ptr == nullptr)
++        continue; // A null allocation is permitted for zero bytes.
++      ASSERT_NE(ptr, nullptr);
++      EXPECT_EQ(reinterpret_cast<uintptr_t>(ptr) % alignment, 0u);
++      std::memset(ptr, 0xa5, size);
++      auto *bytes = static_cast<unsigned char *>(ptr);
++      for (size_t i = 0; i < size; ++i)
++        ASSERT_EQ(bytes[i], 0xa5);
++      M::alignedFree(ptr);
++    }
++  }
++  M::alignedFree(nullptr);
++}
+diff --git a/Support/unittests/BUILD.bazel b/Support/unittests/BUILD.bazel
+index 6ef804f..1cf4638 100644
+--- a/Support/unittests/BUILD.bazel
++++ b/Support/unittests/BUILD.bazel
+@@ -45,6 +45,12 @@ modular_cc_test(
+     ],
+ )
+ 
++modular_cc_test(
++    name = "BinaryIDTest",
++    srcs = ["BinaryIDTest.cpp"],
++    deps = ["//Support:BinaryID"],
++)
++
+ modular_cc_test(
+     name = "LogTest",
+     srcs = [
+diff --git a/Support/unittests/HostTest.cpp b/Support/unittests/HostTest.cpp
+index 3230acd..8073616 100644
+--- a/Support/unittests/HostTest.cpp
++++ b/Support/unittests/HostTest.cpp
+@@ -270,3 +270,28 @@ TEST(Host, NUMATopologyQueries) {
+ }
+ 
+ #endif
++
++#ifdef __FreeBSD__
++TEST(Host, FreeBSDMachineInfo) {
++  auto info = getHostMachineInfo();
++  ASSERT_FALSE(info.isError()) << info.getError();
++  EXPECT_EQ(info->osName, "freebsd");
++  EXPECT_NE(info->triple.find("freebsd"), std::string::npos);
++  EXPECT_FALSE(info->cpuModelName.empty());
++  EXPECT_GT(info->numPhysicalCores, 0u);
++  EXPECT_GE(getNumLogicalCores(), info->numPhysicalCores);
++}
++
++TEST(Host, FreeBSDSystemQueries) {
++  auto version = getHostOSVersion();
++  ASSERT_FALSE(version.isError()) << version.getError();
++  EXPECT_FALSE(version->empty());
++  auto memory = getHostTotalMemoryKB();
++  ASSERT_FALSE(memory.isError()) << memory.getError();
++  uint64_t memoryKB = 0;
++  ASSERT_FALSE(llvm::StringRef(*memory).getAsInteger(10, memoryKB));
++  EXPECT_GT(memoryKB, 0u);
++  auto jailed = getHostIsInContainer();
++  EXPECT_FALSE(jailed.isError()) << jailed.getError();
++}
++#endif
+diff --git a/Support/unittests/ThreadingTest.cpp b/Support/unittests/ThreadingTest.cpp
+index f1b6edb..26b1ad1 100644
+--- a/Support/unittests/ThreadingTest.cpp
++++ b/Support/unittests/ThreadingTest.cpp
+@@ -12,11 +12,17 @@
+ //===----------------------------------------------------------------------===//
+ 
+ #include "Support/Threading/ThreadAffinity.h"
++#include "Support/Threading/HWInfo.h"
+ 
+ #include "Support/ErrorOr.h"
+ #include "Support/Threading/SignalAltStack.h"
+ #include "gtest/gtest.h"
+ #include <thread>
++#ifdef __FreeBSD__
++#include <sys/types.h>
++#include <sys/cpuset.h>
++#include <sys/domainset.h>
++#endif
+ 
+ using namespace M;
+ 
+@@ -65,3 +71,52 @@ TEST(Threading, signalAltStack) {
+   if (preinstalled)
+     GTEST_SKIP() << "threads on this configuration already have one";
+ }
++
++#ifdef __FreeBSD__
++TEST(Threading, FreeBSDAffinityRestoresCPUAndMemoryPolicy) {
++  std::thread([] {
++    ASSERT_TRUE(haveThreadAffinity());
++    cpuset_t original, observed;
++    domainset_t originalDomains, observedDomains;
++    int originalPolicy, observedPolicy;
++    ASSERT_EQ(cpuset_getaffinity(CPU_LEVEL_WHICH, CPU_WHICH_TID, -1,
++                                 sizeof(original), &original), 0);
++    ASSERT_EQ(cpuset_getdomain(CPU_LEVEL_WHICH, CPU_WHICH_TID, -1,
++                               sizeof(originalDomains), &originalDomains,
++                               &originalPolicy), 0);
++    ASSERT_GT(CPU_COUNT(&original), 0);
++    size_t cpu = CPU_FFS(&original) - 1;
++    unsigned calls = 0;
++    auto result = runWithThreadAffinity(cpu, [&] {
++      ++calls;
++      ASSERT_EQ(cpuset_getaffinity(CPU_LEVEL_WHICH, CPU_WHICH_TID, -1,
++                                   sizeof(observed), &observed), 0);
++      EXPECT_EQ(CPU_COUNT(&observed), 1);
++      EXPECT_TRUE(CPU_ISSET(cpu, &observed));
++      ASSERT_EQ(cpuset_getdomain(CPU_LEVEL_WHICH, CPU_WHICH_TID, -1,
++                                 sizeof(observedDomains), &observedDomains,
++                                 &observedPolicy), 0);
++      EXPECT_EQ(observedPolicy, DOMAINSET_POLICY_PREFER);
++      EXPECT_EQ(DOMAINSET_COUNT(&observedDomains), 1);
++    });
++    EXPECT_FALSE(result.isError());
++    EXPECT_EQ(calls, 1u);
++    ASSERT_EQ(cpuset_getaffinity(CPU_LEVEL_WHICH, CPU_WHICH_TID, -1,
++                                 sizeof(observed), &observed), 0);
++    EXPECT_EQ(CPU_CMP(&original, &observed), 0);
++    ASSERT_EQ(cpuset_getdomain(CPU_LEVEL_WHICH, CPU_WHICH_TID, -1,
++                               sizeof(observedDomains), &observedDomains,
++                               &observedPolicy), 0);
++    EXPECT_EQ(DOMAINSET_CMP(&originalDomains, &observedDomains), 0);
++    EXPECT_EQ(originalPolicy, observedPolicy);
++  }).join();
++}
++
++TEST(Threading, FreeBSDAffinityRejectsInvalidCPUWithoutRunningWork) {
++  unsigned calls = 0;
++  EXPECT_TRUE(runWithThreadAffinity(kNoAffinity, [&] { ++calls; }).isError());
++  EXPECT_TRUE(runWithThreadAffinity(CPU_SETSIZE, [&] { ++calls; }).isError());
++  EXPECT_TRUE(setThreadAffinity(CPU_SETSIZE).isError());
++  EXPECT_EQ(calls, 0u);
++}
++#endif
+diff --git a/bazel/common.MODULE.bazel b/bazel/common.MODULE.bazel
+index 83b9db6..af91d90 100644
+--- a/bazel/common.MODULE.bazel
++++ b/bazel/common.MODULE.bazel
+@@ -58,6 +58,8 @@ archive_override(
+         # Also includes a toolchain change which has to be done in lockstep to the current commit
+         # That piece can be removed after the 8/5 nightly.
+         "//bazel/public-patches:rules_mojo_toolchain.patch",
++        "//bazel/public-patches:rules_mojo_native_python.patch",
++        "//bazel/public-patches:rules_mojo_freebsd_libm.patch",
+     ],
+     strip_prefix = "rules_mojo-47643a3b441c20c3a351b8807e37c547338557c8",
+     urls = [
+@@ -90,10 +92,12 @@ archive_override(
+ 
+ single_version_override(
+     module_name = "rules_python",
++    version = "1.8.5",
+     patch_strip = 1,
+     patches = [
+         # https://github.com/bazel-contrib/rules_python/pull/3233
+         "//bazel/public-patches:rules_python_wheel.patch",
++        "//bazel/public-patches:rules_python_freebsd_host.patch",
+         # TODO (SDLC-2681): figure out why this is breaking our code.
+         # reverts https://github.com/bazel-contrib/rules_python/pull/3242
+         "//bazel/public-patches:rules_python_revert.patch",
+@@ -138,6 +142,7 @@ single_version_override(
+         "//bazel/public-patches:grpc-warnings.patch",
+         # TODO: Drop when this is in a release: https://github.com/grpc/grpc/commit/a1e64a2ed6a81c2f51b65c4d28b265db5892dfec
+         "//bazel/public-patches:grpc-loads.patch",
++        "//bazel/public-patches:grpc-freebsd-python.patch",
+     ],
+     version = "1.76.0.bcr.1",
+ )
+@@ -153,15 +158,9 @@ single_version_override(
+     ],
+ )
+ 
+-DEFAULT_PYTHON_VERSION = "3.13"
++DEFAULT_PYTHON_VERSION = "3.12"
+ 
+-PYTHON_VERSIONS = [
+-    "3_10",
+-    "3_11",
+-    "3_12",
+-    "3_13",
+-    "3_14",
+-]
++PYTHON_VERSIONS = ["3_12"]
+ 
+ python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+ python.defaults(python_version = DEFAULT_PYTHON_VERSION)
+@@ -1055,3 +1054,32 @@ LOGIT_VERIFICATION_GOLDENS = [
+ ]
+ 
+ # END GENERATED LOGIT_VERIFICATION GOLDEN HTTP_FILES
++
++single_version_override(
++    module_name = "protoc-gen-validate",
++    version = "1.2.1.bcr.2",
++    patch_strip = 1,
++    patches = ["//bazel/public-patches:pgv-freebsd-python.patch"],
++)
++
++single_version_override(
++    module_name = "fmt",
++    version = "11.2.0",
++    patch_strip = 1,
++    patches = ["//bazel/public-patches:fmt-cstdlib.patch"],
++)
++
++single_version_override(
++    module_name = "curl",
++    version = "8.12.0",
++    patches = ["//bazel/public-patches:curl-freebsd.patch"],
++    patch_strip = 1,
++)
++
++# Native Unix facilities provided by FreeBSD libc.
++single_version_override(
++    module_name = "libxml2",
++    version = "2.15.3",
++    patches = ["//bazel/public-patches:libxml2-freebsd.patch"],
++    patch_strip = 1,
++)
+diff --git a/bazel/internal/BUILD.bazel b/bazel/internal/BUILD.bazel
+index b11e624..cf04020 100644
+--- a/bazel/internal/BUILD.bazel
++++ b/bazel/internal/BUILD.bazel
+@@ -154,6 +154,14 @@ modular_py_binary(
+ mojo_copts_toolchain(
+     name = "_mojo_copts_toolchain",
+     copts = select({
++        "//:freebsd_x86_64": [
++            "-target-triple=x86_64-unknown-freebsd16.0",
++            "--target-cpu=x86-64-v3",
++        ],
++        "//:freebsd_aarch64": [
++            "-target-triple=aarch64-unknown-freebsd16.0",
++            "--target-cpu=neoverse-n1",
++        ],
+         "//:linux_x86_64": [
+             "-target-triple=x86_64-unknown-linux-gnu",
+             "--target-cpu=x86-64-v3",
+@@ -287,6 +295,7 @@ alias(
+     name = "tcmalloc_numa_aware",
+     actual = select({
+         "@platforms//os:macos": "@gperftools-macos//:tcmalloc",
++        "@platforms//os:freebsd": ":empty_lib",
+         # NOTE: This library doesn't override new/free globally, which the default library does
+         "@platforms//os:linux": "@tcmalloc//tcmalloc:tcmalloc_internal_methods_only_numa_aware",
+     }),
+@@ -299,6 +308,7 @@ alias(
+     name = "tcmalloc_want_numa_aware",
+     actual = select({
+         "@platforms//os:macos": ":empty_lib",
++        "@platforms//os:freebsd": ":empty_lib",
+         "@platforms//os:linux": "@tcmalloc//tcmalloc:want_numa_aware",
+     }),
+ )
+diff --git a/bazel/internal/cfg_workaround.bzl b/bazel/internal/cfg_workaround.bzl
+index 2decd20..6d380cf 100644
+--- a/bazel/internal/cfg_workaround.bzl
++++ b/bazel/internal/cfg_workaround.bzl
+@@ -18,7 +18,10 @@ TARGET_CONSTRAINTS = ["@platforms//os:{os}", "@platforms//cpu:{arch}"]
+ def _impl(rctx):
+     rctx.file("BUILD.bazel", content = "")
+ 
+-    host_os = "macos" if "mac os x" in rctx.os.name else "linux"
++    if "freebsd" in rctx.os.name.lower():
++        host_os = "freebsd"
++    else:
++        host_os = "macos" if "mac os x" in rctx.os.name else "linux"
+     host_arch = "x86_64" if rctx.os.arch == "amd64" else "aarch64"
+     target_os, target_arch = rctx.os.environ.get("MODULAR_TARGET", "{}:{}".format(host_os, host_arch)).split(":", 1)
+     if host_os == "macos" and "MODULAR_REMOTE_EXEC" in rctx.os.environ:
+diff --git a/bazel/internal/config.bzl b/bazel/internal/config.bzl
+index c5f1aa7..a6bedb4 100644
+--- a/bazel/internal/config.bzl
++++ b/bazel/internal/config.bzl
+@@ -283,6 +283,7 @@ def env_for_available_tools(
+ 
+     os_specifics = select({
+         "@platforms//os:linux": {"LLDB_DEBUGSERVER_PATH": build_path(Label("@llvm-project//lldb:lldb-server"), lambda x: x)},
++        "@platforms//os:freebsd": {"LLDB_DEBUGSERVER_PATH": build_path(Label("@llvm-project//lldb:lldb-server"), lambda x: x)},
+         "@platforms//os:macos": {"LLDB_DEBUGSERVER_PATH": build_path(Label("@llvm-project//lldb:debugserver"), lambda x: x)},
+     }) | select({
+         # buildifier: disable=canonical-repository
+diff --git a/bazel/internal/llvm-lit/BUILD.bazel b/bazel/internal/llvm-lit/BUILD.bazel
+index 4e50aac..8870a1a 100644
+--- a/bazel/internal/llvm-lit/BUILD.bazel
++++ b/bazel/internal/llvm-lit/BUILD.bazel
+@@ -28,6 +28,14 @@ filegroup(
+     ],
+ )
+ 
++# The native FreeBSD C++ toolchain defines NDEBUG in opt mode. Its debug
++# command-line options are unavailable even with the default Modular config.
++config_setting(
++    name = "freebsd_opt",
++    constraint_values = ["@platforms//os:freebsd"],
++    values = {"compilation_mode": "opt"},
++)
++
+ modular_versioned_expand_template(
+     name = "lit_common_configured",
+     testonly = True,
+@@ -39,12 +47,19 @@ modular_versioned_expand_template(
+         "//conditions:default": {"@LLVM_USE_SANITIZER@": ""},
+     }) | select({
+         "//:modular_config_production": {"@ENABLE_ASSERTIONS@": "False"},
++        ":freebsd_opt": {"@ENABLE_ASSERTIONS@": "False"},
+         "//conditions:default": {"@ENABLE_ASSERTIONS@": "True"},
+     }) | select({
+         "//:modular_config_default": {"@MODULAR_PRODUCTION@": "True"},
+         "//:modular_config_production": {"@MODULAR_PRODUCTION@": "True"},
+         "//conditions:default": {"@MODULAR_PRODUCTION@": "False"},
+     }) | select({
++        # The native FreeBSD toolchain does not define MODULAR_PRODUCTION.
++        "@platforms//os:freebsd": {"@MODULAR_PRODUCTION@": "False"},
++        "//conditions:default": {},
++    }) | select({
++        "//:freebsd_x86_64": {"@TARGET_TRIPLE@": "x86_64-unknown-freebsd16.0"},
++        "//:freebsd_aarch64": {"@TARGET_TRIPLE@": "aarch64-unknown-freebsd16.0"},
+         "//:linux_aarch64": {"@TARGET_TRIPLE@": "aarch64-unknown-linux-gnu"},
+         "//:linux_x86_64": {"@TARGET_TRIPLE@": "x86_64-unknown-linux-gnu"},
+         "@platforms//os:macos": {"@TARGET_TRIPLE@": "arm64-apple-macosx"},
+diff --git a/bazel/internal/llvm-lit/validate_lit_features.py b/bazel/internal/llvm-lit/validate_lit_features.py
+index 628de64..42ad876 100644
+--- a/bazel/internal/llvm-lit/validate_lit_features.py
++++ b/bazel/internal/llvm-lit/validate_lit_features.py
+@@ -29,6 +29,7 @@ _KNOWN_FEATURES = {
+     "production",
+     "system-darwin",
+     "system-linux",
++    "system-freebsd",
+     "tsan",
+     "ubsan",
+     "x86_64-linux",
+@@ -48,6 +49,9 @@ _GPU_FEATURES = {
+ }
+ 
+ _FEATURES_BY_PREFIX = {
++    # These regressions are shared by the CPU and GPU integration groups.
++    # Their UNSUPPORTED conditions still name GPUs in the CPU group.
++    "Mojo/test/mojo-integration": {"AMD-GPU", "NVIDIA-GPU"},
+     "max/kernels/test/linalg": {
+         "avx2",
+         "intel_amx",
+diff --git a/bazel/internal/load_bazel_tools.py b/bazel/internal/load_bazel_tools.py
+index a4571f7..680fe97 100644
+--- a/bazel/internal/load_bazel_tools.py
++++ b/bazel/internal/load_bazel_tools.py
+@@ -16,6 +16,7 @@
+ import json
+ import os
+ import platform
++import sys
+ from pathlib import Path
+ 
+ from lit.llvm import llvm_config
+@@ -193,6 +194,12 @@ for key in sorted(os.environ.keys()):
+ 
+             llvm_config.with_environment(key, ",".join(new_flags))
+             continue
++        elif key == "PYTHONPATH" and sys.platform.startswith("freebsd"):
++            # The native interpreter finds its stdlib through sys.prefix.
++            # Keep the dependency PYTHONPATH and use the same interpreter's bin.
++            llvm_config.with_environment(
++                "PATH", str(Path(sys.executable).parent), append_path=True
++            )
+         elif key == "PYTHONPATH":
+             # Add the toolchain's stdlib to the PYTHONPATH so nested actions
+             # that run python use this toolchain instead of the system
+diff --git a/bazel/internal/mojo_toolchain.bzl b/bazel/internal/mojo_toolchain.bzl
+index cb9aab4..847953a 100644
+--- a/bazel/internal/mojo_toolchain.bzl
++++ b/bazel/internal/mojo_toolchain.bzl
+@@ -40,6 +40,11 @@ def _mojo_toolchain_impl(ctx):
+     # env so that MODULAR_COMPILER_PLUGINS is set automatically when the plugin
+     # is present, without requiring a hardcoded --action_env in local.bazelrc.
+     build_env = {}
++    if ctx.target_platform_has_constraint(ctx.attr._freebsd_constraint[platform_common.ConstraintValueInfo]):
++        build_env = {
++            "MODULAR_TELEMETRY_ENABLED": "0",
++            "MODULAR_CRASH_REPORTING_ENABLED": "0",
++        }
+     if ctx.file.compiler_plugin:
+         build_env["MODULAR_COMPILER_PLUGINS"] = ctx.file.compiler_plugin.path
+         tool_files.append(depset([ctx.file.compiler_plugin]))
+@@ -115,6 +120,9 @@ mojo_toolchain = rule(
+             cfg = "target",
+             doc = "Optional target providing MojoBuildEnvInfo with extra build-action env vars.",
+         ),
++        "_freebsd_constraint": attr.label(
++            default = Label("@platforms//os:freebsd"),
++        ),
+         "_macos_constraint": attr.label(
+             default = Label("@platforms//os:macos"),
+         ),
+diff --git a/bazel/pip/BUILD.bazel b/bazel/pip/BUILD.bazel
+index ffd0fb0..1e56901 100644
+--- a/bazel/pip/BUILD.bazel
++++ b/bazel/pip/BUILD.bazel
+@@ -1 +1,14 @@
++load("@rules_python//python:py_library.bzl", "py_library")
++load(":pip_requirement.bzl", "pip_requirement")
++
+ package(default_visibility = ["//visibility:public"])
++
++# FreeBSD uses NumPy from the ports-provided native Python interpreter.
++# Keep a PyInfo provider so Mojo binary dependencies remain a plain list.
++py_library(
++    name = "native_numpy",
++    deps = select({
++        "@platforms//os:freebsd": [],
++        "//conditions:default": [pip_requirement("numpy")],
++    }),
++)
+diff --git a/bazel/public-patches/llvm_source.bzl b/bazel/public-patches/llvm_source.bzl
+index 6f1b6ff..5cdbd73 100644
+--- a/bazel/public-patches/llvm_source.bzl
++++ b/bazel/public-patches/llvm_source.bzl
+@@ -47,6 +47,7 @@ PATCHES = [
+     # target, so lldb:ConfigHeader fails to see llvm_libxml2_auto. Let the
+     # three members inherit the package's public default.
+     "//bazel/public-patches:llvm-libxml2-config-setting-visibility.patch",
++    "//bazel/public-patches:llvm-freebsd-config.patch",
+ ]
+ 
+ def _llvm_source_impl(module_ctx):
+diff --git a/Mojo/stdlib/std/net/_sys/freebsd.mojo b/Mojo/stdlib/std/net/_sys/freebsd.mojo
+new file mode 100644
+index 0000000..37a8f42
+--- /dev/null
++++ b/Mojo/stdlib/std/net/_sys/freebsd.mojo
+@@ -0,0 +1,122 @@
++# ===----------------------------------------------------------------------=== #
++# Copyright (c) 2026, Modular Inc. All rights reserved.
++#
++# Licensed under the Apache License v2.0 with LLVM Exceptions:
++# https://llvm.org/LICENSE.txt
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++# ===----------------------------------------------------------------------=== #
++"""FreeBSD socket address layouts and constants.
++
++The layouts and values are transcribed from `<sys/socket.h>`,
++`<netinet/in.h>`, and `<sys/un.h>` on FreeBSD.
++"""
++
++from std.ffi import c_char, c_int
++from std.sys import size_of
++
++from .inet import in6_addr, in_addr, in_port_t
++
++comptime sa_family_t = UInt8
++"""C `sa_family_t`: the address family (`AF_*`) of a socket address."""
++
++comptime SO_NOSIGPIPE: c_int = 0x0800
++"""Don't raise `SIGPIPE` on write to a closed peer."""
++
++
++@fieldwise_init
++struct sockaddr(Copyable, Writable):
++    """C `struct sockaddr`: the generic socket address header."""
++
++    var sa_len: UInt8
++    """The total length of the address."""
++    var sa_family: sa_family_t
++    """The address family (`AF_*`)."""
++    var sa_data: Array[c_char, 14]
++    """Padding to the historical 16-byte `sockaddr` size."""
++
++
++@fieldwise_init
++struct sockaddr_in(Copyable, Writable):
++    """C `struct sockaddr_in`: an IPv4 socket address."""
++
++    var sin_len: UInt8
++    """The total length of the address (16)."""
++    var sin_family: sa_family_t
++    """The address family (`AF_INET`)."""
++    var sin_port: in_port_t
++    """The port in network byte order."""
++    var sin_addr: in_addr
++    """The IPv4 address."""
++    var sin_zero: Array[c_char, 8]
++    """Padding to the 16-byte `sockaddr` size; always zero."""
++
++
++@fieldwise_init
++struct sockaddr_in6(Copyable, Writable):
++    """C `struct sockaddr_in6`: an IPv6 socket address."""
++
++    var sin6_len: UInt8
++    """The total length of the address (28)."""
++    var sin6_family: sa_family_t
++    """The address family (`AF_INET6`)."""
++    var sin6_port: in_port_t
++    """The port in network byte order."""
++    var sin6_flowinfo: UInt32
++    """IPv6 flow information."""
++    var sin6_addr: in6_addr
++    """The IPv6 address."""
++    var sin6_scope_id: UInt32
++    """Scope zone index for link-local addresses."""
++
++
++comptime _SUN_PATH_LEN = 104
++
++
++@fieldwise_init
++struct sockaddr_un(Copyable, Writable):
++    """C `struct sockaddr_un`: a Unix domain socket address."""
++
++    var sun_len: UInt8
++    """The total length of the address."""
++    var sun_family: sa_family_t
++    """The address family (`AF_UNIX`)."""
++    var sun_path: Array[c_char, _SUN_PATH_LEN]
++    """The filesystem path, NUL-terminated unless it fills the array."""
++
++
++# Sizing for `sockaddr_storage`, from FreeBSD's `<sys/socket.h>`
++comptime _SS_MAXSIZE = 128
++comptime _SS_ALIGNSIZE = size_of[Int64]()
++comptime _SS_PAD1SIZE = (
++    _SS_ALIGNSIZE - size_of[UInt8]() - size_of[sa_family_t]()
++)
++comptime _SS_PAD2SIZE = (
++    _SS_MAXSIZE
++    - size_of[UInt8]()
++    - size_of[sa_family_t]()
++    - _SS_PAD1SIZE
++    - _SS_ALIGNSIZE
++)
++
++
++@fieldwise_init
++struct sockaddr_storage(Copyable, Writable):
++    """C `struct sockaddr_storage`: sized and aligned to hold any address.
++
++    Used as the out-parameter for calls that return a peer address
++    (`accept`, `getsockname`, ...); inspect `ss_family` and reinterpret
++    as the matching concrete type.
++    """
++
++    var ss_len: UInt8
++    """The total length of the stored address."""
++    var ss_family: sa_family_t
++    """The address family of the stored address (`AF_*`)."""
++    var __ss_pad1: Array[c_char, _SS_PAD1SIZE]
++    var __ss_align: Int64
++    var __ss_pad2: Array[c_char, _SS_PAD2SIZE]
+diff --git a/Mojo/stdlib/std/os/_freebsd.mojo b/Mojo/stdlib/std/os/_freebsd.mojo
+new file mode 100644
+index 0000000..ab64bcd
+--- /dev/null
++++ b/Mojo/stdlib/std/os/_freebsd.mojo
+@@ -0,0 +1,115 @@
++# ===----------------------------------------------------------------------=== #
++# Copyright (c) 2026, Modular Inc. All rights reserved.
++#
++# Licensed under the Apache License v2.0 with LLVM Exceptions:
++# https://llvm.org/LICENSE.txt
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++# ===----------------------------------------------------------------------=== #
++
++"""FreeBSD 64-bit stat ABI, verified against native <sys/stat.h>."""
++
++from std.collections import Array
++from std.ffi import external_call
++from std.sys import size_of
++from std.time.time import _CTimeSpec
++
++from .fstat import stat_result
++
++
++@fieldwise_init
++struct _c_stat(Copyable, Defaultable, Writable):
++    var st_dev: UInt64
++    var st_ino: UInt64
++    var st_nlink: UInt64
++    var st_mode: UInt16
++    var st_bsdflags: Int16
++    var st_uid: UInt32
++    var st_gid: UInt32
++    var st_padding1: Int32
++    var st_rdev: UInt64
++    var st_atimespec: _CTimeSpec
++    var st_mtimespec: _CTimeSpec
++    var st_ctimespec: _CTimeSpec
++    var st_birthtimespec: _CTimeSpec
++    var st_size: Int64
++    var st_blocks: Int64
++    var st_blksize: Int32
++    var st_flags: UInt32
++    var st_gen: UInt64
++    var st_filerev: UInt64
++    var st_spare: Array[UInt64, 9]
++
++    def __init__(out self):
++        self.st_dev = 0
++        self.st_ino = 0
++        self.st_nlink = 0
++        self.st_mode = 0
++        self.st_bsdflags = 0
++        self.st_uid = 0
++        self.st_gid = 0
++        self.st_padding1 = 0
++        self.st_rdev = 0
++        self.st_atimespec = _CTimeSpec()
++        self.st_mtimespec = _CTimeSpec()
++        self.st_ctimespec = _CTimeSpec()
++        self.st_birthtimespec = _CTimeSpec()
++        self.st_size = 0
++        self.st_blocks = 0
++        self.st_blksize = 0
++        self.st_flags = 0
++        self.st_gen = 0
++        self.st_filerev = 0
++        self.st_spare = Array[UInt64, 9]()
++
++    def write_to(self, mut writer: Some[Writer]):
++        writer.write(self._to_stat_result())
++
++    def _to_stat_result(self) -> stat_result:
++        return stat_result(
++            st_dev=Int(self.st_dev),
++            st_mode=Int(self.st_mode),
++            st_nlink=Int(self.st_nlink),
++            st_ino=Int(self.st_ino),
++            st_uid=Int(self.st_uid),
++            st_gid=Int(self.st_gid),
++            st_rdev=Int(self.st_rdev),
++            st_atimespec=self.st_atimespec,
++            st_ctimespec=self.st_ctimespec,
++            st_mtimespec=self.st_mtimespec,
++            st_birthtimespec=self.st_birthtimespec,
++            st_size=Int(self.st_size),
++            st_blocks=Int(self.st_blocks),
++            st_blksize=Int(self.st_blksize),
++            st_flags=Int(self.st_flags),
++        )
++
++
++@inline(.always)
++def _stat(var path: String) raises -> _c_stat:
++    comptime assert size_of[Int]() == 8, "FreeBSD stat requires a 64-bit target"
++    comptime assert size_of[_c_stat]() == 224, "FreeBSD stat ABI mismatch"
++    var stat = _c_stat()
++    var err = external_call["stat", Int32](
++        path.as_c_string_span(), Pointer(to=stat)
++    )
++    if err == -1:
++        raise Error("unable to stat '", path, "'")
++    return stat^
++
++
++@inline(.always)
++def _lstat(var path: String) raises -> _c_stat:
++    comptime assert size_of[Int]() == 8, "FreeBSD stat requires a 64-bit target"
++    comptime assert size_of[_c_stat]() == 224, "FreeBSD stat ABI mismatch"
++    var stat = _c_stat()
++    var err = external_call["lstat", Int32](
++        path.as_c_string_span(), Pointer(to=stat)
++    )
++    if err == -1:
++        raise Error("unable to lstat '", path, "'")
++    return stat^
+diff --git a/Mojo/stdlib/std/pwd/_freebsd.mojo b/Mojo/stdlib/std/pwd/_freebsd.mojo
+new file mode 100644
+index 0000000..07877d1
+--- /dev/null
++++ b/Mojo/stdlib/std/pwd/_freebsd.mojo
+@@ -0,0 +1,72 @@
++# ===----------------------------------------------------------------------=== #
++# Copyright (c) 2026, Modular Inc. All rights reserved.
++#
++# Licensed under the Apache License v2.0 with LLVM Exceptions:
++# https://llvm.org/LICENSE.txt
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++# ===----------------------------------------------------------------------=== #
++
++from std.ffi import c_char, external_call
++from std.sys import size_of
++
++from .pwd import Passwd
++
++comptime uid_t = UInt32
++comptime gid_t = UInt32
++comptime time_t = Int
++comptime char = Pointer[c_char, MutUntrackedOrigin]
++
++
++struct _C_Passwd(TrivialRegisterPassable):
++    var pw_name: char
++    var pw_passwd: char
++    var pw_uid: uid_t
++    var pw_gid: gid_t
++    var pw_change: time_t
++    var pw_class: char
++    var pw_gecos: char
++    var pw_dir: char
++    var pw_shell: char
++    var pw_expire: time_t
++    var pw_fields: Int32
++
++
++def _build_pw_struct(passwd_ptr: ImmPointer[_C_Passwd, _]) -> Passwd:
++    comptime assert size_of[Int]() == 8, "FreeBSD passwd requires a 64-bit target"
++    comptime assert size_of[_C_Passwd]() == 80, "FreeBSD passwd ABI mismatch"
++    var c_pwuid = passwd_ptr[]
++    var passwd = Passwd(
++        pw_name=String(unsafe_from_utf8_ptr=c_pwuid.pw_name),
++        pw_passwd=String(unsafe_from_utf8_ptr=c_pwuid.pw_passwd),
++        pw_uid=Int(c_pwuid.pw_uid),
++        pw_gid=Int(c_pwuid.pw_gid),
++        pw_gecos=String(unsafe_from_utf8_ptr=c_pwuid.pw_gecos),
++        pw_dir=String(unsafe_from_utf8_ptr=c_pwuid.pw_dir),
++        pw_shell=String(unsafe_from_utf8_ptr=c_pwuid.pw_shell),
++    )
++    return passwd^
++
++
++def _getpw_freebsd(uid: UInt32) raises -> Passwd:
++    var passwd_ptr = external_call[
++        "getpwuid", OptionalPointer[_C_Passwd, UntrackedOrigin[mut=True]]
++    ](uid)
++    try:
++        return _build_pw_struct(passwd_ptr[])
++    except:
++        raise Error("user ID not found in the password database: ", uid)
++
++
++def _getpw_freebsd(var name: String) raises -> Passwd:
++    var passwd_ptr = external_call[
++        "getpwnam", OptionalPointer[_C_Passwd, UntrackedOrigin[mut=True]]
++    ](name.as_c_string_span())
++    try:
++        return _build_pw_struct(passwd_ptr[])
++    except:
++        raise Error("user name not found in the password database: ", name)
+diff --git a/Mojo/stdlib/test/format/test_format_utils.mojo b/Mojo/stdlib/test/format/test_format_utils.mojo
+new file mode 100644
+index 0000000..b508a7b
+--- /dev/null
++++ b/Mojo/stdlib/test/format/test_format_utils.mojo
+@@ -0,0 +1,234 @@
++# ===----------------------------------------------------------------------=== #
++# Copyright (c) 2026, Modular Inc. All rights reserved.
++#
++# Licensed under the Apache License v2.0 with LLVM Exceptions:
++# https://llvm.org/LICENSE.txt
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++# ===----------------------------------------------------------------------=== #
++"""Tests for format._utils helper types and functions.
++
++This module tests the internal formatting utilities used by the standard library
++for implementing Writable and formatting operations.
++"""
++
++from std.format._utils import FormatStruct, Named, Repr, write_sequence_to
++from std.testing import assert_equal, TestSuite
++
++
++# ===----------------------------------------------------------------------=== #
++# Test Fixtures (shared across multiple tests)
++# ===----------------------------------------------------------------------=== #
++
++
++@fieldwise_init
++struct TestWritable(ImplicitlyCopyable, Writable):
++    """A simple writable type for testing."""
++
++    var value: Int
++
++    def write_to(self, mut writer: Some[Writer]):
++        writer.write("TestWritable(", self.value, ")")
++
++    def write_repr_to(self, mut writer: Some[Writer]):
++        writer.write("TestWritable[repr](", self.value, ")")
++
++
++# ===----------------------------------------------------------------------=== #
++# write_sequence_to Tests
++# ===----------------------------------------------------------------------=== #
++
++
++def test_write_sequence_empty() raises:
++    var result = String()
++    write_sequence_to(result, start="[", end="]")
++    assert_equal(result, "[]")
++
++
++def test_write_sequence_single_element() raises:
++    var result = String()
++    write_sequence_to(result, 42, start="[", end="]")
++    assert_equal(result, "[42]")
++
++
++def test_write_sequence_multiple_elements() raises:
++    var result = String()
++    write_sequence_to(result, 1, 2, 3, start="[", end="]")
++    assert_equal(result, "[1, 2, 3]")
++
++
++def test_write_sequence_custom_delimiters() raises:
++    var result = String()
++    write_sequence_to(result, 1, 2, 3, start="(", end=")")
++    assert_equal(result, "(1, 2, 3)")
++
++
++def test_write_sequence_custom_separator() raises:
++    var result = String()
++    write_sequence_to(result, 1, 2, 3, start="[", end="]", sep="; ")
++    assert_equal(result, "[1; 2; 3]")
++
++
++def test_write_sequence_custom_all() raises:
++    var result = String()
++    write_sequence_to(result, "a", "b", "c", start="<", end=">", sep=" | ")
++    assert_equal(result, "<a | b | c>")
++
++
++def test_write_sequence_writable_objects() raises:
++    var result = String()
++    write_sequence_to(
++        result, TestWritable(10), TestWritable(20), start="[", end="]"
++    )
++    assert_equal(result, "[TestWritable(10), TestWritable(20)]")
++
++
++def test_write_sequence_mixed_types() raises:
++    var result = String()
++    write_sequence_to(result, 1, "hello", TestWritable(42), start="[", end="]")
++    assert_equal(result, "[1, hello, TestWritable(42)]")
++
++
++def test_write_sequence_empty_separator() raises:
++    var result = String()
++    write_sequence_to(result, 1, 2, 3, start="[", end="]", sep="")
++    assert_equal(result, "[123]")
++
++
++# ===----------------------------------------------------------------------=== #
++# Repr Tests
++# ===----------------------------------------------------------------------=== #
++
++
++def test_repr_basic() raises:
++    var v = TestWritable(42)
++    # Repr should call write_repr_to
++    assert_equal(String(Repr(v)), "TestWritable[repr](42)")
++
++
++def test_repr_vs_direct() raises:
++    var v = TestWritable(100)
++    var repr_result = String(Repr(v))
++    var direct_result = String(v)
++
++    assert_equal(repr_result, "TestWritable[repr](100)")
++    assert_equal(direct_result, "TestWritable(100)")
++
++
++# ===----------------------------------------------------------------------=== #
++# Named Tests
++# ===----------------------------------------------------------------------=== #
++
++
++def test_named() raises:
++    # basic
++    assert_equal(String(Named("value", 42)), "value=42")
++
++    # with writable
++    assert_equal(
++        String(Named("field", TestWritable(100))), "field=TestWritable(100)"
++    )
++
++    # empty name
++    assert_equal(String(Named("", 42)), "=42")
++
++
++# ===----------------------------------------------------------------------=== #
++# FormatStruct Tests
++# ===----------------------------------------------------------------------=== #
++
++
++def test_format_struct_name_only() raises:
++    var result = String()
++    FormatStruct(result, "MyStruct").fields()
++    assert_equal(result, "MyStruct()")
++
++
++def test_format_struct_with_fields() raises:
++    var result = String()
++    FormatStruct(result, "Point").fields(10, 20)
++    assert_equal(result, "Point(10, 20)")
++
++
++def test_format_struct_with_params() raises:
++    var result = String()
++    FormatStruct(result, "Array").params("Int", 10).fields()
++    assert_equal(result, "Array[Int, 10]()")
++
++
++def test_format_struct_with_params_and_fields() raises:
++    var result = String()
++    FormatStruct(result, "Container").params("String").fields("value", 42)
++    assert_equal(result, "Container[String](value, 42)")
++
++
++def test_format_struct_multiple_params() raises:
++    var result = String()
++    FormatStruct(result, "Pair").params("Int", "String").fields(1, "test")
++    assert_equal(result, "Pair[Int, String](1, test)")
++
++
++def test_format_struct_single_param() raises:
++    var result = String()
++    FormatStruct(result, "Optional").params("String").fields()
++    assert_equal(result, "Optional[String]()")
++
++
++def test_format_struct_single_field() raises:
++    var result = String()
++    FormatStruct(result, "Wrapper").fields(42)
++    assert_equal(result, "Wrapper(42)")
++
++
++def test_format_struct_empty() raises:
++    var result = String()
++    FormatStruct(result, "Empty").fields()
++    assert_equal(result, "Empty()")
++
++
++# ===----------------------------------------------------------------------=== #
++# Integration Tests
++# ===----------------------------------------------------------------------=== #
++
++
++def test_struct_repr() raises:
++    var result = String()
++    FormatStruct(result, "MyPoint").fields(
++        Named("x", Repr(10)),
++        Named("y", Repr(20)),
++        Named("name", Repr(String("point"))),
++    )
++    assert_equal(result, "MyPoint(x=Int(10), y=Int(20), name='point')")
++
++
++def test_parametric_struct() raises:
++    var result = String()
++    FormatStruct(result, "Array").params("Int", 10).fields(
++        Named("data", 42), Named("len", 5)
++    )
++    assert_equal(result, "Array[Int, 10](data=42, len=5)")
++
++
++def test_nested_formatting() raises:
++    var inner_result = String()
++    FormatStruct(inner_result, "Inner").fields(Named("x", 1), Named("y", 2))
++
++    # Use that in outer struct
++    var outer_result = String()
++    FormatStruct(outer_result, "Outer").fields(
++        Named("inner", inner_result), Named("count", 5)
++    )
++    assert_equal(outer_result, "Outer(inner=Inner(x=1, y=2), count=5)")
++
++
++# ===----------------------------------------------------------------------=== #
++# Main Test Runner
++# ===----------------------------------------------------------------------=== #
++
++
++def main() raises:
++    TestSuite.discover_tests[__functions_in_module()]().run()
+diff --git a/Mojo/stdlib/test/net/abi_freebsd/__init__.mojo b/Mojo/stdlib/test/net/abi_freebsd/__init__.mojo
+new file mode 100644
+index 0000000..11ee581
+--- /dev/null
++++ b/Mojo/stdlib/test/net/abi_freebsd/__init__.mojo
+@@ -0,0 +1,53 @@
++# ===----------------------------------------------------------------------=== #
++# Copyright (c) 2026, Modular Inc. All rights reserved.
++#
++# Licensed under the Apache License v2.0 with LLVM Exceptions:
++# https://llvm.org/LICENSE.txt
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++# ===----------------------------------------------------------------------=== #
++"""C ABI manifest: the FreeBSD-specific `std.net._sys` mirrors."""
++
++from test_utils.cabi_check import AbiConstant, AbiTypedef, AbiTypedefLike
++
++from std.net._sys.freebsd import (
++    SO_NOSIGPIPE,
++    sa_family_t,
++    sockaddr,
++    sockaddr_in,
++    sockaddr_in6,
++    sockaddr_storage,
++    sockaddr_un,
++)
++
++comptime CABI_INCLUDES: List[StaticString] = [
++    "<netinet/in.h>",
++    "<sys/socket.h>",
++    "<sys/un.h>",
++]
++"""The headers that declare the C side."""
++
++comptime CABI_STRUCTS = TypeList.of[
++    Trait=AnyType,
++    sockaddr,
++    sockaddr_in,
++    sockaddr_in6,
++    sockaddr_un,
++    sockaddr_storage,
++]()
++"""The struct mirrors to check."""
++
++comptime CABI_TYPEDEFS = TypeList.of[
++    Trait=AbiTypedefLike,
++    AbiTypedef["sa_family_t", sa_family_t],
++]()
++"""The type aliases to check."""
++
++comptime CABI_CONSTANTS = [
++    AbiConstant("SO_NOSIGPIPE", SO_NOSIGPIPE),
++]
++"""The constants to check."""
+diff --git a/Mojo/stdlib/test/sys/test_freebsd_target.mojo b/Mojo/stdlib/test/sys/test_freebsd_target.mojo
+new file mode 100644
+index 0000000..4abd993
+--- /dev/null
++++ b/Mojo/stdlib/test/sys/test_freebsd_target.mojo
+@@ -0,0 +1,31 @@
++# ===----------------------------------------------------------------------=== #
++# Copyright (c) 2026, Modular Inc. All rights reserved.
++#
++# Licensed under the Apache License v2.0 with LLVM Exceptions:
++# https://llvm.org/LICENSE.txt
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++# ===----------------------------------------------------------------------=== #
++#
++# This file is only run on FreeBSD targets.
++#
++# ===----------------------------------------------------------------------=== #
++
++from std.sys import CompilationTarget
++
++from std.testing import assert_false, assert_true
++from std.testing import TestSuite
++
++
++def test_os_query() raises:
++    assert_false(CompilationTarget.is_macos())
++    assert_false(CompilationTarget.is_linux())
++    assert_true(CompilationTarget.is_freebsd())
++
++
++def main() raises:
++    TestSuite.discover_tests[__functions_in_module()]().run()
+diff --git a/Support/unittests/BinaryIDTest.cpp b/Support/unittests/BinaryIDTest.cpp
+new file mode 100644
+index 0000000..15a0304
+--- /dev/null
++++ b/Support/unittests/BinaryIDTest.cpp
+@@ -0,0 +1,21 @@
++//===----------------------------------------------------------------------===//
++// Copyright (c) 2026, Modular Inc. All rights reserved.
++//
++// Licensed under the Apache License v2.0 with LLVM Exceptions:
++// https://llvm.org/LICENSE.txt
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++//===----------------------------------------------------------------------===//
++
++#include "Support/BinaryID.h"
++#include "gtest/gtest.h"
++
++TEST(BinaryID, LinkedImageHasStableIdentifier) {
++  auto id = M::getBinaryID();
++  EXPECT_FALSE(id.empty());
++  EXPECT_EQ(id, M::getBinaryID());
++}
+diff --git a/bazel/public-patches/curl-freebsd.patch b/bazel/public-patches/curl-freebsd.patch
+new file mode 100644
+index 0000000..705751d
+--- /dev/null
++++ b/bazel/public-patches/curl-freebsd.patch
+@@ -0,0 +1,33 @@
++--- a/BUILD.bazel
+++++ b/BUILD.bazel
++@@ -387,7 +387,7 @@
++     )
++     for name, defines in [
++         (
++-            "curl",
+++            "curl_vendored",
++             ["CURL_STATICLIB"],
++         ),
++         ("curl_shared_lib_headers", []),
++@@ -457,3 +457,21 @@
++     visibility = ["//visibility:private"],
++     deps = [":curl_shared_lib_headers"],
++ )
+++
+++# FreeBSD's ports libcurl owns its native TLS and resolver configuration.
+++cc_library(
+++    name = "curl_freebsd",
+++    hdrs = glob(["include/curl/*.h"]),
+++    includes = ["include"],
+++    linkopts = ["-L/usr/local/lib", "-Wl,-rpath,/usr/local/lib", "-lcurl"],
+++    target_compatible_with = ["@platforms//os:freebsd"],
+++)
+++
+++alias(
+++    name = "curl",
+++    actual = select({
+++        "@platforms//os:freebsd": ":curl_freebsd",
+++        "//conditions:default": ":curl_vendored",
+++    }),
+++    visibility = ["//visibility:public"],
+++)
+diff --git a/bazel/public-patches/fmt-cstdlib.patch b/bazel/public-patches/fmt-cstdlib.patch
+new file mode 100644
+index 0000000..dae7ca0
+--- /dev/null
++++ b/bazel/public-patches/fmt-cstdlib.patch
+@@ -0,0 +1,26 @@
++diff --git a/include/fmt/format.h b/include/fmt/format.h
++--- a/include/fmt/format.h
+++++ b/include/fmt/format.h
++@@ -44,6 +44,7 @@
++ #  include <cmath>    // std::signbit
++ #  include <cstddef>  // std::byte
++ #  include <cstdint>  // uint32_t
+++#  include <cstdlib>  // std::malloc, std::free
++ #  include <cstring>  // std::memcpy
++ #  include <limits>   // std::numeric_limits
++ #  include <new>      // std::bad_alloc
++@@ -744,12 +745,12 @@
++ 
++   T* allocate(size_t n) {
++     FMT_ASSERT(n <= max_value<size_t>() / sizeof(T), "");
++-    T* p = static_cast<T*>(malloc(n * sizeof(T)));
+++    T* p = static_cast<T*>(std::malloc(n * sizeof(T)));
++     if (!p) FMT_THROW(std::bad_alloc());
++     return p;
++   }
++ 
++-  void deallocate(T* p, size_t) { free(p); }
+++  void deallocate(T* p, size_t) { std::free(p); }
++ };
++ 
++ }  // namespace detail
+diff --git a/bazel/public-patches/grpc-freebsd-python.patch b/bazel/public-patches/grpc-freebsd-python.patch
+new file mode 100644
+index 0000000..8c349f6
+--- /dev/null
++++ b/bazel/public-patches/grpc-freebsd-python.patch
+@@ -0,0 +1,17 @@
++--- a/MODULE.bazel
+++++ b/MODULE.bazel
++@@ -60,13 +60,7 @@
++ 
++ bazel_dep(name = "rules_python", version = "1.6.0")
++ 
++-PYTHON_VERSIONS = [
++-    "3.9",
++-    "3.10",
++-    "3.11",
++-    "3.12",
++-    "3.13",
++-]
+++PYTHON_VERSIONS = ["3.12"]
++ 
++ python = use_extension("@rules_python//python/extensions:python.bzl", "python")
++ 
+diff --git a/bazel/public-patches/libxml2-freebsd.patch b/bazel/public-patches/libxml2-freebsd.patch
+new file mode 100644
+index 0000000..3df24a4
+--- /dev/null
++++ b/bazel/public-patches/libxml2-freebsd.patch
+@@ -0,0 +1,10 @@
++--- a/BUILD.bazel
+++++ b/BUILD.bazel
++@@ -82,6 +82,7 @@
++         "@platforms//os:linux": UNIX_DEFINES + [
++             "HAVE_POLL_H",
++         ],
+++        "@platforms//os:freebsd": UNIX_DEFINES + ["HAVE_POLL_H"],
++         "@platforms//os:macos": UNIX_DEFINES,
++         "@platforms//os:windows": [
++             "LIBXML_STATIC",
+diff --git a/bazel/public-patches/llvm-freebsd-config.patch b/bazel/public-patches/llvm-freebsd-config.patch
+new file mode 100644
+index 0000000..411a91b
+--- /dev/null
++++ b/bazel/public-patches/llvm-freebsd-config.patch
+@@ -0,0 +1,90 @@
++diff --git a/utils/bazel/llvm-project-overlay/llvm/BUILD.bazel b/utils/bazel/llvm-project-overlay/llvm/BUILD.bazel
++--- a/utils/bazel/llvm-project-overlay/llvm/BUILD.bazel
+++++ b/utils/bazel/llvm-project-overlay/llvm/BUILD.bazel
++@@ -58,6 +58,24 @@
++     # This one is needed for building and vendoring out lldb from off tree.
++     "utils/lldbDataFormatters.py",
++ ])
+++
+++config_setting(
+++    name = "freebsd_x86_64",
+++    constraint_values = [
+++        "@platforms//os:freebsd",
+++        "@platforms//cpu:x86_64",
+++    ],
+++    visibility = ["//visibility:public"],
+++)
+++
+++config_setting(
+++    name = "freebsd_aarch64",
+++    constraint_values = [
+++        "@platforms//os:freebsd",
+++        "@platforms//cpu:aarch64",
+++    ],
+++    visibility = ["//visibility:public"],
+++)
++ 
++ config_setting(
++     name = "darwin_arm64",
++diff --git a/utils/bazel/llvm-project-overlay/llvm/config.bzl b/utils/bazel/llvm-project-overlay/llvm/config.bzl
++--- a/utils/bazel/llvm-project-overlay/llvm/config.bzl
+++++ b/utils/bazel/llvm-project-overlay/llvm/config.bzl
++@@ -90,6 +90,7 @@
++ 
++ arc4random_defines = select({
++     "@platforms//os:macos": ["HAVE_DECL_ARC4RANDOM=1"],
+++    "@platforms//os:freebsd": ["HAVE_DECL_ARC4RANDOM=1"],
++     "//conditions:default": ["HAVE_DECL_ARC4RANDOM=0"],
++ })
++ 
++@@ -114,7 +115,7 @@
++ # to express.
++ os_defines = select({
++     "@platforms//os:emscripten": emscripten_defines,
++-    "@platforms//os:freebsd": posix_so_defines,
+++    "@platforms//os:freebsd": posix_so_defines + ["HAVE_STRUCT_STAT_ST_MTIM_TV_NSEC=1"],
++     "@platforms//os:macos": macos_defines,
++     "@platforms//os:windows": win32_defines,
++     "//conditions:default": linux_defines,
++@@ -140,6 +141,8 @@
++     Label("//llvm:is_aarch64_windows_clang_cl"): native_arch_defines("AArch64", "aarch64-pc-windows-msvc"),
++     Label("//llvm:is_aarch64_windows_msvc"): native_arch_defines("AArch64", "aarch64-pc-windows-msvc"),
++     Label("//llvm:is_x86_64_windows_clang_mingw"): native_arch_defines("X86", "x86_64-w64-windows-gnu"),
+++    Label("//llvm:freebsd_x86_64"): native_arch_defines("X86", "x86_64-unknown-freebsd16.0"),
+++    Label("//llvm:freebsd_aarch64"): native_arch_defines("AArch64", "aarch64-unknown-freebsd16.0"),
++     Label("//llvm:darwin_arm64"): native_arch_defines("AArch64", "arm64-apple-darwin"),
++     Label("//llvm:darwin_x86_64"): native_arch_defines("X86", "x86_64-unknown-darwin"),
++     Label("//llvm:linux_aarch64"): native_arch_defines("AArch64", "aarch64-unknown-linux-gnu"),
++diff --git a/llvm/lib/Support/Unix/Signals.inc b/llvm/lib/Support/Unix/Signals.inc
++--- a/llvm/lib/Support/Unix/Signals.inc
+++++ b/llvm/lib/Support/Unix/Signals.inc
++@@ -78,7 +78,7 @@
++ #include <__le_cwi.h>
++ #endif
++ 
++-#if defined(__linux__)
+++#if defined(__linux__) || defined(__FreeBSD__)
++ #include <sys/syscall.h>
++ #endif
++ 
++@@ -365,6 +365,20 @@
++       break;
++     }
++     sigemptyset(&NewHandler.sa_mask);
+++
+++#if defined(__FreeBSD__)
+++    // ASan installs signal handlers through the raw syscall before libthr is
+++    // initialized. Its sigaction cache may still report SIG_DFL, causing LLVM
+++    // to save and later restore the wrong disposition. Synchronize such a
+++    // handler before replacing it, including for file-cleanup-only handlers.
+++    struct sigaction LibcAction, KernelAction;
+++    if (sigaction(Signal, nullptr, &LibcAction) == 0 &&
+++        LibcAction.sa_handler == SIG_DFL &&
+++        syscall(SYS_sigaction, Signal, nullptr, &KernelAction) == 0 &&
+++        KernelAction.sa_handler != SIG_DFL &&
+++        KernelAction.sa_handler != SIG_IGN)
+++      sigaction(Signal, &KernelAction, nullptr);
+++#endif
++ 
++     if (NeedsPOSIXUtilitySignalHandling) {
++       // Don't install the new handler if the signal disposition is SIG_IGN.
+diff --git a/bazel/public-patches/pgv-freebsd-python.patch b/bazel/public-patches/pgv-freebsd-python.patch
+new file mode 100644
+index 0000000..d24c876
+--- /dev/null
++++ b/bazel/public-patches/pgv-freebsd-python.patch
+@@ -0,0 +1,18 @@
++diff --git a/MODULE.bazel b/MODULE.bazel
++--- a/MODULE.bazel
+++++ b/MODULE.bazel
++@@ -61,13 +61,7 @@
++     "org_golang_x_net",
++ )
++ 
++-PYTHON_VERSIONS = [
++-    "3.9",
++-    "3.10",
++-    "3.11",
++-    "3.12",
++-    "3.13",
++-]
+++PYTHON_VERSIONS = ["3.12"]
++ 
++ python = use_extension("@rules_python//python/extensions:python.bzl", "python")
++ 
+diff --git a/bazel/public-patches/rules_mojo_freebsd_libm.patch b/bazel/public-patches/rules_mojo_freebsd_libm.patch
+new file mode 100644
+index 0000000..4d406a0
+--- /dev/null
++++ b/bazel/public-patches/rules_mojo_freebsd_libm.patch
+@@ -0,0 +1,32 @@
++diff --git a/mojo/private/mojo_binary_test.bzl b/mojo/private/mojo_binary_test.bzl
++--- a/mojo/private/mojo_binary_test.bzl
+++++ b/mojo/private/mojo_binary_test.bzl
++@@ -40,6 +40,7 @@
++ then be used in copts with the $(location) function.
++ """,
++     ),
+++    "_freebsd_constraint": attr.label(default = Label("@platforms//os:freebsd")),
++     "_mojo_copts": attr.label(
++         default = Label("//:mojo_copt"),
++     ),
++@@ -215,13 +216,19 @@
++         if ctx.attr.shared_lib_name:
++             link_kwargs["main_output"] = ctx.actions.declare_file(ctx.attr.shared_lib_name)  # Only set if name is not using the default logic
++ 
+++    # Mojo numerical code calls libm directly; a runtime DSO dependency does
+++    # not satisfy these symbols in a FreeBSD executable link.
+++    system_linkopts = []
+++    if ctx.target_platform_has_constraint(ctx.attr._freebsd_constraint[platform_common.ConstraintValueInfo]):
+++        system_linkopts.append("-lm")
+++
++     linking_outputs = link_hack(
++         actions = ctx.actions,
++         feature_configuration = feature_configuration,
++         cc_toolchain = cc_toolchain,
++         linking_contexts = [object_linking_context, ccdeps.linking_context],
++         name = ctx.label.name,
++-        user_link_flags = ctx.attr.linkopts,
+++        user_link_flags = ctx.attr.linkopts + system_linkopts,
++         **link_kwargs
++     )
++ 
+diff --git a/bazel/public-patches/rules_mojo_native_python.patch b/bazel/public-patches/rules_mojo_native_python.patch
+new file mode 100644
+index 0000000..01a4bb3
+--- /dev/null
++++ b/bazel/public-patches/rules_mojo_native_python.patch
+@@ -0,0 +1,56 @@
++diff --git a/mojo/private/mojo_binary_test.bzl b/mojo/private/mojo_binary_test.bzl
++--- a/mojo/private/mojo_binary_test.bzl
+++++ b/mojo/private/mojo_binary_test.bzl
++@@ -227,8 +227,10 @@
++ 
++     data = ctx.attr.data
++     runfiles = ctx.runfiles(ctx.files.data)
+++    python_runtime = py_toolchain.py3_runtime
+++    python_files = python_runtime.files or depset()
++     transitive_runfiles = [
++-        ctx.runfiles(transitive_files = py_toolchain.py3_runtime.files),
+++        ctx.runfiles(transitive_files = python_files),
++     ]
++     if extra_runfiles:
++         transitive_runfiles.append(ctx.runfiles(files = extra_runfiles))
++@@ -260,25 +262,32 @@
++ 
++     # https://github.com/bazelbuild/rules_python/issues/2262
++     libpython = None
++-    for file in py_toolchain.py3_runtime.files.to_list():
+++    for file in python_files.to_list():
++         if file.basename.startswith("libpython"):
++             libpython = file.short_path
++             break  # if there are multiple any of them should work and they are likely symlinks to each other
++ 
++-    if not libpython:
++-        fail("failed to find libpython, please report this at https://github.com/modular/rules_mojo/issues")
+++    if python_runtime.interpreter:
+++        python_executable = python_runtime.interpreter.short_path
+++        if not libpython:
+++            fail("failed to find libpython, please report this at https://github.com/modular/rules_mojo/issues")
+++    else:
+++        # System runtimes expose interpreter_path, not an interpreter artifact.
+++        # CompilerRT discovers the matching libpython through that interpreter.
+++        python_executable = python_runtime.interpreter_path
++ 
++     default_path = ctx.attr.env.get("PATH") or ctx.configuration.default_shell_env.get("PATH") or "/usr/bin:/bin:/usr/sbin"
++     runtime_env = dict(ctx.attr.env) | {
++-        "MODULAR_PYTHON_EXECUTABLE": py_toolchain.py3_runtime.interpreter.short_path,
++-        "MOJO_PYTHON": py_toolchain.py3_runtime.interpreter.short_path,
++-        "MOJO_PYTHON_LIBRARY": libpython,
++-        "PATH": paths.dirname(py_toolchain.py3_runtime.interpreter.short_path) + ":" + default_path,  # python < 3.11 doesn't set sys.executable correctly when Py_Initialize is called unless it's in the $PATH
++-        "PYTHONEXECUTABLE": py_toolchain.py3_runtime.interpreter.short_path,
+++        "MODULAR_PYTHON_EXECUTABLE": python_executable,
+++        "MOJO_PYTHON": python_executable,
+++        "PATH": paths.dirname(python_executable) + ":" + default_path,  # python < 3.11 doesn't set sys.executable correctly when Py_Initialize is called unless it's in the $PATH
+++        "PYTHONEXECUTABLE": python_executable,
++         "PYTHONNOUSERSITE": "affirmative",
++         "PYTHONPATH": python_path,
++         "PYTHONSAFEPATH": "affirmative",
++     }
+++    if libpython:
+++        runtime_env["MOJO_PYTHON_LIBRARY"] = libpython
++     runtime_env.update(runtime_env_extra)
++     for key, value in runtime_env.items():
++         runtime_env[key] = ctx.expand_make_variables(
+diff --git a/bazel/public-patches/rules_python_freebsd_host.patch b/bazel/public-patches/rules_python_freebsd_host.patch
+new file mode 100644
+index 0000000..18dac03
+--- /dev/null
++++ b/bazel/public-patches/rules_python_freebsd_host.patch
+@@ -0,0 +1,77 @@
++diff --git a/python/private/python.bzl b/python/private/python.bzl
++--- a/python/private/python.bzl
+++++ b/python/private/python.bzl
++@@ -211,6 +211,21 @@
++             for t in toolchains
++         ],
++     )
+++
+++
+++def _freebsd_host_python_impl(rctx):
+++    interpreter = rctx.os.environ.get("MOJO_PYTHON", "/usr/local/bin/python3.12")
+++    result = rctx.execute([interpreter, "-I", "-c", "import sys; print('%s.%s' % sys.version_info[:2])"])
+++    if result.return_code or result.stdout.strip() != "3.12":
+++        fail("MOJO_PYTHON must name a native Python 3.12 interpreter")
+++    rctx.symlink(interpreter, "python")
+++    rctx.file("BUILD.bazel", 'exports_files(["python"], visibility = ["//visibility:public"])\n')
+++
+++_freebsd_host_python = repository_rule(
+++    implementation = _freebsd_host_python_impl,
+++    environ = ["MOJO_PYTHON"],
+++    local = True,
+++)
++ 
++ def _python_impl(module_ctx):
++     logger = repo_utils.logger(module_ctx, "python")
++@@ -344,6 +359,10 @@
++             )
++ 
++     for host_repo_name, info in needed_host_repos.items():
+++        if repo_utils.get_platforms_os_name(module_ctx) == "freebsd" and info.compatible_version == "3.12":
+++            _freebsd_host_python(name = host_repo_name)
+++            all_host_compatible_repo_names.append(host_repo_name)
+++            continue
++         choices = []
++         if info.compatible_version not in all_host_compatible_impls:
++             logger.warn("No host compatible runtime found compatible with version {}".format(info.compatible_version))
++diff --git a/MODULE.bazel b/MODULE.bazel
++--- a/MODULE.bazel
+++++ b/MODULE.bazel
++@@ -45,14 +45,14 @@
++ # NOTE: There must be a corresponding `python.toolchain()` call for the version
++ # specified here.
++ python.defaults(
++-    python_version = "3.11",
+++    python_version = "3.12",
++ )
++ python.toolchain(
++-    python_version = "3.11",
+++    python_version = "3.12",
++ )
++ use_repo(
++     python,
++-    "python_3_11",
+++    "python_3_12",
++     "pythons_hub",
++     python = "python_versions",
++ )
++@@ -202,7 +202,7 @@
++ 
++ pip.parse(
++     hub_name = "rules_python_publish_deps",
++-    python_version = "3.11",
+++    python_version = "3.12",
++     requirements_by_platform = {
++         "//tools/publish:requirements_darwin.txt": "osx_*",
++         "//tools/publish:requirements_linux.txt": "linux_*",
++diff --git a/python/private/local_runtime_repo_setup.bzl b/python/private/local_runtime_repo_setup.bzl
++--- a/python/private/local_runtime_repo_setup.bzl
+++++ b/python/private/local_runtime_repo_setup.bzl
++@@ -144,6 +144,7 @@
++     py_runtime(
++         name = "py3_runtime",
++         interpreter_path = interpreter_path,
+++        stub_shebang = "#!" + interpreter_path,
++         python_version = "PY3",
++         interpreter_version_info = {
++             "major": major,

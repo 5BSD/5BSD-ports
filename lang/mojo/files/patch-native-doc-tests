@@ -1,0 +1,30 @@
+--- a/Mojo/docs/site/code/manual/metaprogramming/comptime-evaluation/BUILD.bazel
++++ b/Mojo/docs/site/code/manual/metaprogramming/comptime-evaluation/BUILD.bazel
+@@ -8,10 +8,7 @@
+     mojo_binary(
+         name = src.split(".")[0],
+         srcs = [src],
+-        deps = [
+-            "//max:layout",
+-            "@mojo//:std",
+-        ],
++        deps = ["@mojo//:std"],
+     )
+     for src in MOJO_SRCS
+ ]
+--- a/Mojo/docs/site/code/manual/metaprogramming/materialization/BUILD.bazel
++++ b/Mojo/docs/site/code/manual/metaprogramming/materialization/BUILD.bazel
+@@ -8,10 +8,9 @@
+     mojo_binary(
+         name = src.split(".")[0],
+         srcs = [src],
+-        deps = [
+-            "//max:layout",
+-            "@mojo//:std",
+-        ],
++        deps = ["@mojo//:std"] + (
++            ["//max:layout"] if src == "comptime_subexpression.mojo" else []
++        ),
+     )
+     for src in MOJO_SRCS
+ ]
