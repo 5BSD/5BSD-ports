@@ -10,24 +10,19 @@ Edit /etc/pf.conf and set v4egress_if, v6egress_if to your network interface(s)
 # service pf start
 
 The sample PF configuration includes support for port redirections. These are
-implemented as redirect rules in anchors nested under cni-rdr.
+implemented as redirect rules in anchors nested under cni-rdr. 5BSD runs
+OpenBSD PF: translation and filter rules share the single anchor
+'anchor "cni-rdr/*"' (there is no rdr-anchor or nat-anchor), and NAT is a
+'match out ... nat-to' rule.
 
-Support for redirecting connections from the container host to services running
-inside a container is included for FreeBSD 13.3 and later. To enable this, first
-load the pf kernel module, by adding pf_load="YES" to /boot/loader.conf and
-enable PF support for these redirections using sysctl:
+Connections from the container host itself pass through PF on lo0 like any
+other traffic, so no sysctl is needed (OpenBSD PF has no net.pf.filter_local).
+Do not kldload pf by hand on a running system: 5BSD denies late module
+loads. Set pf_enable="YES" so pf.ko is loaded during boot, or preload it
+with pf_load="YES" in /boot/loader.conf.
 
-# kldload pf
-# sysctl net.pf.filter_local=1
-# service pf restart
-
-Redirect rules will work if the destination address is localhost (e.g. 127.0.0.1
-or ::1) - to enable this, the following line must be included in your
-/etc/pf.conf:
-
-nat-anchor "cni-rdr/*"
-
-if upgrading from an older version, this needs to be added to /etc/pf.conf.
+If upgrading from an older version, replace any rdr-anchor/nat-anchor lines
+and FreeBSD "nat on ... ->" rules in /etc/pf.conf as in the sample.
 
 For example if host port 1234 is redirected to an http service running in a
 container, you could connect to it using:
