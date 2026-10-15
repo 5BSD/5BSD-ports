@@ -10,6 +10,10 @@ WWW=		https://samm.kiev.ua/bruteblock/
 LICENSE=	BSD3CLAUSE
 LICENSE_FILE=	${WRKSRC}/doc/LICENSE
 
+# 5BSD: base has no ipfw(8).  bruteblock manipulates ipfw2 tables through
+# ipfw's raw socket API and has no other backend.
+IGNORE=		requires ipfw(8) tables, which 5BSD does not have; use security/sshguard (PF backend) or blocklistd(8)
+
 LIB_DEPENDS=	libpcre2-8.so:devel/pcre2
 
 SUB_FILES=	pkg-message

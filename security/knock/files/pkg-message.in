@@ -1,0 +1,12 @@
+[
+{ type: install
+  message: <<EOM
+The sample %%PREFIX%%/etc/knockd.conf opens SSH by adding the knocking
+address to the pf table <knockd> (5BSD runs OpenBSD PF; there is no ipfw).
+Allow that table in /etc/pf.conf after the rules that block SSH:
+
+  table <knockd> persist
+  pass in proto tcp from <knockd> to port ssh
+EOM
+}
+]

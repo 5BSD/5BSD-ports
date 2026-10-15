@@ -1,6 +1,6 @@
 PORTNAME=	knock
 DISTVERSION=	0.8
-PORTREVISION=	1
+PORTREVISION=	2
 PORTEPOCH=	1
 CATEGORIES=	security
 MASTER_SITES=	https://github.com/jvinet/${PORTNAME}/releases/download/v${DISTVERSION}/ \
@@ -30,6 +30,7 @@ SERVER_DESC=	Install knockd server
 
 .if ${PORT_OPTIONS:MSERVER}
 USE_RC_SUBR=	knockd
+SUB_FILES=	pkg-message
 PLIST_FILES+=	bin/knockd \
 		etc/knockd.conf.sample \
 		share/man/man1/knockd.1.gz
