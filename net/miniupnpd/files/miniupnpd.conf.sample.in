@@ -50,7 +50,7 @@ clean_ruleset_interval=600
 
 # log packets in pf
 #packet_log=no
-# ALTQ queue in pf
+# pf queue (pf.conf "queue") assigned to the rules
 # filter rules must be used for this to be used.
 # compile with PF_ENABLE_FILTER_RULES (see config.h file)
 #queue=queue_name1

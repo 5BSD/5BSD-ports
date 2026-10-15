@@ -1,6 +1,6 @@
 PORTNAME=	miniupnpd
 DISTVERSION=	2.3.9
-PORTREVISION=	1
+PORTREVISION=	2
 PORTEPOCH=	1
 CATEGORIES=	net
 MASTER_SITES=	http://miniupnp.free.fr/files/ \
@@ -15,21 +15,21 @@ WWW=		http://miniupnp.free.fr/
 
 LICENSE=	BSD3CLAUSE
 
-LIB_DEPENDS=	libpfctl.so:net/libpfctl
-
 USES=		cpe localbase:ldflags ssl
 CPE_VENDOR=	miniupnp_project
 
 USE_RC_SUBR=	${PORTNAME}
 
 HAS_CONFIGURE=	yes
-# unconditionally use pf, ipfw does not work on FreeBSD
-CONFIGURE_ARGS=	--firewall=pf --libpfctl
+# 5BSD: base runs OpenBSD PF.  Use miniupnpd's native ioctl pf backend
+# (not libpfctl), configured as genconfig.sh configures OpenBSD >= 5.0:
+# rdr-to/nat-to rules in an anchor (PF_NEWSTYLE), rtable and on rdomain.
+CONFIGURE_ARGS=	--firewall=pf
 
 MAKE_JOBS_UNSAFE=	yes
 
 CFLAGS+=	-I${OPENSSLINC}
-LDFLAGS+=	-L${OPENSSLLIB} -lpfctl
+LDFLAGS+=	-L${OPENSSLLIB}
 
 PLIST_FILES=	etc/miniupnpd.conf.sample \
 		share/man/man8/miniupnpd.8.gz \
@@ -52,5 +52,10 @@ post-patch:
 	@${REINPLACE_CMD} -e 's|\(-lssl -lcrypto\)|$$(LDFLAGS) \1|g' \
 		-e 's|^INSTALLMANDIR.*|INSTALLMANDIR = ${PREFIX}/share/man|' \
 		${WRKSRC}/Makefile.bsd
+
+post-configure:
+	${PRINTF} '%s\n' '/* 5BSD: OpenBSD PF */' '#define PF_NEWSTYLE' \
+		'#define PFRULE_HAS_RTABLEID' '#define PFRULE_HAS_ONRDOMAIN' \
+		>> ${WRKSRC}/config.h
 
 .include <bsd.port.mk>

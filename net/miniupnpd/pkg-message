@@ -6,16 +6,12 @@ This port allows machines within your network to create holes in your
 firewall.  Please ensure this is really what you want!
 *** !!WARNING!! !!WARNING!! !!WARNING!! ***
 
-For this daemon to work, you must modify your pf rules to add an anchor
-in both the NAT and rules section.  Both must be called 'miniupnpd'.
+For this daemon to work, your pf.conf must call the 'miniupnpd' anchor.
+5BSD runs OpenBSD PF: there is no separate NAT section or rdr-anchor;
+miniupnpd loads its rdr-to and pass rules into one ordinary anchor.
 Example:
 
-# NAT section
-# UPnPd rdr anchor
-rdr-anchor "miniupnpd"
-
-# Rules section
-# uPnPd rule anchor
+# uPnPd anchor (redirections and filter rules)
 anchor "miniupnpd"
 EOM
 }
