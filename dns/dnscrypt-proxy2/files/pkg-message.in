@@ -15,24 +15,13 @@ change dnscrypt-proxy config file to use port 53.
 Below are a few examples on how to redirect local connections from port
 5353 to 53.
 
-[ipfw]
-
-  ipfw nat 1 config if lo0 reset same_ports \
-    redirect_port tcp 127.0.0.1:5353 53 \
-    redirect_port udp 127.0.0.1:5353 53
-  ipfw add nat 1 ip from any to 127.0.0.1 via lo0
-
-  /etc/rc.conf:
-    firewall_enable="YES"
-    firewall_nat_enable="YES"
-
-  /etc/sysctl.conf:
-    net.inet.ip.fw.one_pass=0
-
 [pf]
 
-  set skip on lo0
-  rdr pass on lo0 proto { tcp udp } from any to port 53 -> 127.0.0.1 port 5353
+  5BSD runs OpenBSD PF (there is no ipfw).  Local queries leave and
+  re-enter on lo0, so do not "set skip on lo0":
+
+  pass in on lo0 proto { tcp udp } from any to port 53 \
+    rdr-to 127.0.0.1 port 5353
 
   /etc/rc.conf:
     pf_enable="YES"
