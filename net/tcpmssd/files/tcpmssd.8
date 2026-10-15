@@ -22,7 +22,7 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.Dd June 11, 2004
+.Dd October 15, 2026
 .Dt TCPMSSD 8
 .Os
 .Sh NAME
@@ -98,30 +98,40 @@ option,
 does not detach from its controlling terminal and writes various diagnostic
 messages to the standard error output.
 .Pp
-The following steps are necessary to run
-.Nm :
-.Bl -enum
-.It
-Build your kernel with the following options:
+On 5BSD,
+.Xr pf 4
+can clamp the MSS itself with the
+.Cm max-mss
+scrub option, which needs no daemon:
 .Bd -literal -offset indent
-options IPFIREWALL
-options IPDIVERT
+match on tun0 proto tcp scrub (max-mss 1440)
 .Ed
 .Pp
-Refer to the Handbook for detailed instructions on building a custom
-kernel.
-.It
-Make sure to redirect TCP traffic to the
+To use
+.Nm
+instead, divert the TCP traffic to the
 .Xr divert 4
 port
-.Ar port .
-Refer to the
-.Xr ipfw 8
-manual page for details.
-.El
+.Ar port
+with a
+.Cm divert-packet
+rule in
+.Xr pf.conf 5 ,
+for example:
+.Bd -literal -offset indent
+pass out on tun0 proto tcp divert-packet port 1234
+.Ed
+.Pp
+and start
+.Nm
+with
+.Fl p Ar 1234 .
+.Cm divert-packet
+diverts every packet of the matching connections, in both directions.
 .Sh SEE ALSO
 .Xr divert 4 ,
-.Xr ipfw 8
+.Xr pf 4 ,
+.Xr pf.conf 5
 .Sh AUTHORS
 .An -nosplit
 This program was written by

@@ -24,6 +24,11 @@
 #
 #ipacctd_rule_xl0_flags="-p 666"
 #ipacctd_rule_xl0_pid="/var/run/ipacctd.xl0"
+#
+# On 5BSD, packets reach ipacctd through pf's divert(4) socket; send
+# them there with a divert-packet rule in pf.conf, for example:
+#
+#   pass on xl0 divert-packet port 666
 
 . /etc/rc.subr
 

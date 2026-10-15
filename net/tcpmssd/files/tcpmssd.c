@@ -123,11 +123,11 @@ main(int argc, char *argv[])
 		/* NOTREACHED */
 	}
 
-#ifdef PF_DIVERT
-	if ((s = socket(PF_DIVERT, SOCK_RAW, 0)) == -1) {
-#else
+	/*
+	 * 5BSD: use pf's divert(4) socket, fed by "divert-packet" rules.
+	 * PF_DIVERT is ipfw's ipdivert(4), which 5BSD does not provide.
+	 */
 	if ((s = socket(PF_INET, SOCK_RAW, IPPROTO_DIVERT)) == -1) {
-#endif
 		err(1, "can't create divert socket");
 		/* NOTREACHED */
 	}
