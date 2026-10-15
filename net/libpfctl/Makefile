@@ -9,6 +9,11 @@ WWW=		https://cgit.freebsd.org/src/tree/lib/libpfctl
 
 LICENSE=	BSD2CLAUSE
 
+# 5BSD: base runs OpenBSD PF.  libpfctl drives FreeBSD pf through nvlist
+# ioctls and the pf netlink family, neither of which exists.  Consumers use
+# the OpenBSD DIOC* ioctls from <net/pfvar.h> directly.
+IGNORE=		is FreeBSD pf only: 5BSD runs OpenBSD PF without nvlist ioctls or pf netlink; use the OpenBSD DIOC* ioctls in <net/pfvar.h>
+
 USE_LDCONFIG=	yes
 
 WRKSRC=		${WRKDIR}/libpfctl
