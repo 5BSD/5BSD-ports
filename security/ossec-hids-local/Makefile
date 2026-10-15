@@ -125,7 +125,6 @@ OSSEC_HOME?=		${PREFIX}/${PORTNAME}
 .endif
 OSSEC_RC=		${PREFIX}/etc/rc.d/ossec-hids
 FIREWALL_DROP_BIN=	${OSSEC_HOME}/active-response/bin/firewall-drop.sh
-IPFILTER_BIN=		${OSSEC_HOME}/active-response/bin/ipfilter.sh
 RESTART_OSSEC_BIN=	${OSSEC_HOME}/active-response/bin/restart-ossec.sh
 SHARED_DIR=		${OSSEC_HOME}/etc/shared
 
@@ -221,7 +220,10 @@ post-install:
 .for file_path in ${SAMPLE_FILES}
 	@${MV} -f ${STAGEDIR}${file_path} ${STAGEDIR}${file_path}.sample
 .endfor
-	@${MV} -f ${STAGEDIR}${FIREWALL_DROP_BIN} ${STAGEDIR}${IPFILTER_BIN}
+# 5BSD: no ipfw(8) or IPFilter; ship only the pf.sh firewall script.
+	@${RM} ${STAGEDIR}${FIREWALL_DROP_BIN} \
+		${STAGEDIR}${OSSEC_HOME}/active-response/bin/ipfw.sh \
+		${STAGEDIR}${OSSEC_HOME}/active-response/bin/ipfw_mac.sh
 	@${CP} ${WRKDIR}/restart-ossec.sh ${STAGEDIR}${RESTART_OSSEC_BIN}
 	@${CHMOD} 550 ${STAGEDIR}${RESTART_OSSEC_BIN}
 .if defined(MAINTAINER_MODE)

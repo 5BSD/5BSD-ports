@@ -1,6 +1,7 @@
 PORTNAME=	wazuh
 DISTVERSIONPREFIX=	v
 DISTVERSION=	4.14.8
+PORTREVISION=	1
 CATEGORIES=	security
 MASTER_SITES=	https://packages.wazuh.com/deps/54/libraries/sources/:wazuh_sources \
 		LOCAL/acm/${PORTNAME}/:wazuh_cache
@@ -104,7 +105,8 @@ WZBIN_FILES=	agent_control wazuh-logcollector wazuh-execd  manage_agents wazuh-m
 		wazuh-logtest-legacy wazuh-csyslogd verify-agent-conf clear_stats \
 		wazuh-regex wazuh-integratord wazuh-db wazuh-remoted wazuh-authd wazuh-keystore
 
-WZARBIN_FILES=	default-firewall-drop pf npf ipfw firewalld-drop disable-account \
+# 5BSD: no ipfw(8); the ipfw active-response script is not installed.
+WZARBIN_FILES=	default-firewall-drop pf npf firewalld-drop disable-account \
 		host-deny ip-customblock restart-wazuh route-null kaspersky wazuh-slack
 
 WZSHEBANG_FILES=chardetect connexion cygdb cython cythonize f2py fixup_pubsub_v1_keywords.py \

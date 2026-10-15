@@ -8,7 +8,6 @@
 /var/ossec/active-response/bin/firewalld-drop
 /var/ossec/active-response/bin/host-deny
 /var/ossec/active-response/bin/ip-customblock
-/var/ossec/active-response/bin/ipfw
 /var/ossec/active-response/bin/kaspersky
 /var/ossec/active-response/bin/kaspersky.py
 /var/ossec/active-response/bin/npf

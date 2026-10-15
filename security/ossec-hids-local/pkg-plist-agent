@@ -6,9 +6,6 @@
 @(,ossec,0550) %%OSSEC_HOME%%/active-response/bin/firewalld-drop.sh
 @(,ossec,0550) %%OSSEC_HOME%%/active-response/bin/host-deny.sh
 @(,ossec,0550) %%OSSEC_HOME%%/active-response/bin/ip-customblock.sh
-@(,ossec,0550) %%OSSEC_HOME%%/active-response/bin/ipfilter.sh
-@(,ossec,0550) %%OSSEC_HOME%%/active-response/bin/ipfw.sh
-@(,ossec,0550) %%OSSEC_HOME%%/active-response/bin/ipfw_mac.sh
 @(,ossec,0550) %%OSSEC_HOME%%/active-response/bin/nftables-drop.sh
 @(,ossec,0550) %%OSSEC_HOME%%/active-response/bin/npf.sh
 @sample(,ossec,0550) %%OSSEC_HOME%%/active-response/bin/ossec-aws-waf.sh.sample

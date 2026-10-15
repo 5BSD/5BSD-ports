@@ -1,5 +1,6 @@
 PORTNAME=	wazuh
 DISTVERSION=	4.14.8
+PORTREVISION=	1
 DISTVERSIONPREFIX=	v
 CATEGORIES=	security
 MASTER_SITES=	https://packages.wazuh.com/deps/54/libraries/sources/:wazuh_sources
@@ -72,7 +73,8 @@ SUB_FILES=	pkg-message
 WZBIN_FILES=	agent-auth manage_agents wazuh-agentd wazuh-execd wazuh-logcollector \
 		wazuh-modulesd
 
-WZARBIN_FILES=	default-firewall-drop pf npf ipfw firewalld-drop disable-account \
+# 5BSD: no ipfw(8); the ipfw active-response script is not installed.
+WZARBIN_FILES=	default-firewall-drop pf npf firewalld-drop disable-account \
 		host-deny ip-customblock restart-wazuh route-null kaspersky wazuh-slack
 
 WAZUHMOD750=	/ /logs/wazuh /bin /lib /queue /queue/diff /queue/logcollector \
