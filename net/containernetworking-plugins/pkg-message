@@ -15,10 +15,11 @@ editing for a host with one uplink. NAT is a 'match out ... nat-to' rule;
 it takes effect for packets a pass rule lets through.
 
 Port redirections (podman run -p) are loaded by the portmap plugin into
-anchors nested under cni-rdr, as 'pass in ... rdr-to' rules. The main
-ruleset must contain 'anchor "cni-rdr/*"'; OpenBSD PF has no rdr-anchor
-or nat-anchor. Connections from the container host itself pass through PF
-on lo0 like any other traffic, so no sysctl is needed.
+anchors nested under cni-rdr: 'pass in ... rdr-to' for other hosts and
+'pass out on lo0 ... rdr-to ... nat-to' for connections from the container
+host itself, including localhost. The main ruleset must contain
+'anchor "cni-rdr/*"'; OpenBSD PF has no rdr-anchor or nat-anchor. No
+sysctl is needed.
 
 pf.ko, if_bridge and if_epair must be loaded at boot: 5BSD denies late
 module loads. 5BSD's loader preloads them by default.

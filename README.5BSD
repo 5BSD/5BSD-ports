@@ -314,8 +314,9 @@ world sysroot with small models of the upstream code):
   mail/spamd              8: OpenBSD rdr-to rules in the message; obspamlogd
                           checks the pflog cloner instead of kldloading.
   net/containernetworking-plugins 20: portmap emits OpenBSD rules
-                          ("pass in ... rdr-to", "pass out on <bridge> ...
-                          nat-to") and removes them with -F rules (pfctl
+                          ("pass in ... rdr-to"; "pass out on lo0 ... rdr-to
+                          ... nat-to (<bridge>:0)" for the host itself) and
+                          removes them with -F rules (pfctl
                           has no -F nat); pf.conf.sample translates on the
                           kernel's "egress" group, with the pass rule match
                           rules need; message.  Seam test in base:

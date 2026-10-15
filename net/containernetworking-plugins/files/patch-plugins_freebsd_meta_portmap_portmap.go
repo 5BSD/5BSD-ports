@@ -1,6 +1,6 @@
 --- plugins/freebsd/meta/portmap/portmap.go.orig
 +++ plugins/freebsd/meta/portmap/portmap.go
-@@ -112,14 +112,16 @@
+@@ -112,16 +112,25 @@
  			hostIP = "self"
  		}
  
@@ -11,15 +11,28 @@
 -				"rdr pass %s proto %s from any to %s port %d -> %s port %d",
 +				"pass in %s proto %s from any to %s port %d rdr-to %s port %d",
  				containerAF, pmap.Protocol, hostIP, pmap.HostPort, containerIP, pmap.ContainerPort))
- 		if *config.SNAT {
- 			res = append(res,
- 				fmt.Sprintf(
+-		if *config.SNAT {
+-			res = append(res,
+-				fmt.Sprintf(
 -					"nat on %s %s proto %s from (lo0) to %s port %d -> (%s)",
-+					"pass out on %s %s proto %s from (lo0) to %s port %d nat-to (%s)",
- 					config.BrName, containerAF, pmap.Protocol, containerIP, pmap.ContainerPort, config.BrName))
+-					config.BrName, containerAF, pmap.Protocol, containerIP, pmap.ContainerPort, config.BrName))
++		// Connections from the host itself leave through lo0, and the
++		// state pf creates there also matches them on their way back
++		// in, so redirect them on output.  The stack then routes them
++		// straight to the bridge; translate the source at the same
++		// time so the container can answer (127.0.0.1 included).
++		snat := ""
++		if *config.SNAT {
++			snat = fmt.Sprintf(" nat-to (%s:0)", config.BrName)
  		}
++		res = append(res,
++			fmt.Sprintf(
++				"pass out on lo0 %s proto %s from any to %s port %d rdr-to %s port %d%s",
++				containerAF, pmap.Protocol, hostIP, pmap.HostPort, containerIP, pmap.ContainerPort, snat))
  	}
-@@ -187,7 +189,9 @@
+ 	return res, nil
+ }
+@@ -187,7 +196,9 @@
  		return nil
  	}
  
