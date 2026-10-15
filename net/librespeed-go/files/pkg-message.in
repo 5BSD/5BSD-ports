@@ -14,9 +14,10 @@ To start the service directly:
         service librespeed-go start
 
 By default, librespeed-go daemon runs under user privilege so it cannot listen
-on the standard http port 80/tcp. You can expose 80/tcp to the daemon using
-packet forwarding by ipfw like below (recommended):
-	ipfw add fwd 127.0.0.1,8989 tcp from any to me 80 in
+on the standard http port 80/tcp. You can expose 80/tcp to the daemon with
+a pf(4) redirection in /etc/pf.conf like below (recommended; 5BSD runs
+OpenBSD PF):
+	pass in proto tcp to self port 80 rdr-to 127.0.0.1 port 8989
 
 Alternatively, you can configure the daemon to listen on 80/tcp if it is
 running with root privileges. 
