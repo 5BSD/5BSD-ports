@@ -1,11 +1,14 @@
-# Change these to the interface(s) with the default route
-v4egress_if = "ix0"
-v6egress_if = "ix0"
+# Container networking with 5BSD's OpenBSD PF.
+#
+# "egress" is the interface group of the default route(s), kept up to date
+# by the kernel.  To translate on other interfaces, name them instead.
+table <cni-nat> persist
 
-table <cni-nat>
+match out on egress inet from <cni-nat> to any nat-to (egress:0)
+match out on egress inet6 from <cni-nat> to !ff00::/8 nat-to (egress:0)
 
-match out on $v4egress_if inet from <cni-nat> to any nat-to ($v4egress_if)
-match out on $v6egress_if inet6 from <cni-nat> to !ff00::/8 nat-to ($v6egress_if)
+# match rules only translate packets that a pass rule lets through.
+pass
 
 # Port redirections are loaded into anchors nested under cni-rdr.
 # OpenBSD PF has no rdr-anchor/nat-anchor: one anchor holds every rule type.

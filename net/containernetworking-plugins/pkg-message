@@ -1,25 +1,27 @@
+[
+{ type: install
+  message: <<EOM
 Container networking relies on NAT to allow container network packets
 out to the host's network. This requires a PF firewall to perform the
-translation. A simple example is included - to use it:
+translation. 5BSD runs OpenBSD PF; a ruleset for it is included:
 
 # cp /usr/local/etc/containers/pf.conf.sample /etc/pf.conf
-...
-Edit /etc/pf.conf and set v4egress_if, v6egress_if to your network interface(s)
-...
 # sysrc pf_enable=YES
 # service pf start
 
-The sample PF configuration includes support for port redirections. These are
-implemented as redirect rules in anchors nested under cni-rdr. 5BSD runs
-OpenBSD PF: translation and filter rules share the single anchor
-'anchor "cni-rdr/*"' (there is no rdr-anchor or nat-anchor), and NAT is a
-'match out ... nat-to' rule.
+The sample translates on the "egress" interface group, which the kernel
+keeps pointing at the interface(s) of the default routes, so it needs no
+editing for a host with one uplink. NAT is a 'match out ... nat-to' rule;
+it takes effect for packets a pass rule lets through.
 
-Connections from the container host itself pass through PF on lo0 like any
-other traffic, so no sysctl is needed (OpenBSD PF has no net.pf.filter_local).
-Do not kldload pf by hand on a running system: 5BSD denies late module
-loads. Set pf_enable="YES" so pf.ko is loaded during boot, or preload it
-with pf_load="YES" in /boot/loader.conf.
+Port redirections (podman run -p) are loaded by the portmap plugin into
+anchors nested under cni-rdr, as 'pass in ... rdr-to' rules. The main
+ruleset must contain 'anchor "cni-rdr/*"'; OpenBSD PF has no rdr-anchor
+or nat-anchor. Connections from the container host itself pass through PF
+on lo0 like any other traffic, so no sysctl is needed.
+
+pf.ko, if_bridge and if_epair must be loaded at boot: 5BSD denies late
+module loads. 5BSD's loader preloads them by default.
 
 If upgrading from an older version, replace any rdr-anchor/nat-anchor lines
 and FreeBSD "nat on ... ->" rules in /etc/pf.conf as in the sample.
@@ -32,3 +34,6 @@ container, you could connect to it using:
 or
 
 # fetch -o- http://localhost:1234
+EOM
+}
+]

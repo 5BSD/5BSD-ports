@@ -313,8 +313,13 @@ world sysroot with small models of the upstream code):
   net-mgmt/p0f            2: rebuilt for the 100-byte pflog header.
   mail/spamd              8: OpenBSD rdr-to rules in the message; obspamlogd
                           checks the pflog cloner instead of kldloading.
-  net/containernetworking-plugins 19: OpenBSD pf.conf.sample (match ...
-                          nat-to, one cni-rdr/* anchor) and message.
+  net/containernetworking-plugins 20: portmap emits OpenBSD rules
+                          ("pass in ... rdr-to", "pass out on <bridge> ...
+                          nat-to") and removes them with -F rules (pfctl
+                          has no -F nat); pf.conf.sample translates on the
+                          kernel's "egress" group, with the pass rule match
+                          rules need; message.  Seam test in base:
+                          tests/sys/netpfil/integration/containers.
   net-mgmt/chillispot 15, net-mgmt/coovachilli 3: OpenBSD pf.conf.sample;
                           ipfw-config.sample no longer installed.
   net/ts-warp             1: rc script appends plain anchors.
@@ -345,6 +350,6 @@ are now equivalent to upstream's SO_RTABLE code.
 
 Needs source/runtime review (distfiles not available offline): jail managers
 sysutils/bastille, pot, cbsd, reggae, appjail and qjail, which generate or
-document pf rules; the containernetworking plugins' runtime rule generation;
+document pf rules;
 ts-warp's installed ts-warp_pf_freebsd.conf sample and natlook path. Every
 converted code port above still needs a native build and a VM runtime test.
