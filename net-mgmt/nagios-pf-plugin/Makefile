@@ -8,7 +8,7 @@ COMMENT=	Nagios plugin for checking PF
 WWW=		https://github.com/kian/nagios-pf-plugin/
 
 # 5BSD: base runs OpenBSD PF, so the plugin's native DIOCGETSTATUS and
-# DIOCGETLIMIT ioctls work unchanged; libpfctl is not used.
+# DIOCGETLIMIT ioctls work unchanged.
 
 USE_GITHUB=	yes
 GH_ACCOUNT=	kian

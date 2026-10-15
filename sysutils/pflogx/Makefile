@@ -15,7 +15,7 @@ LICENSE_FILE=	${WRKSRC}/LICENSE
 WRKSRC=		${WRKDIR}/${PORTNAME}
 
 # 5BSD: base installs OpenBSD's <net/pfvar.h> and <net/if_pflog.h>, so
-# upstream's original pf includes are used; FreeBSD's <netpfil/pf/pf.h> is gone.
+# upstream's original pf includes are used; FreeBSD's separate pf.h is gone.
 
 OPTIONS_DEFINE=	EXPAT DOCS EXAMPLES
 

@@ -1,0 +1,27 @@
+# Documented exceptions for 5bsd-pf-check.sh (see README.5BSD,
+# "OpenBSD PF transition").  Format: <path> [<fixed string>]  # reason
+# A trailing "*" on <path> makes it a prefix.
+
+# Retired or unconverted ports; each Makefile states why.
+net/libpfctl					# IGNORE; origin kept for upstream syncs
+net/Makefile	SUBDIR += libpfctl		# category entry of the IGNOREd origin
+net/relayd/Makefile				# BROKEN until re-sourced from OpenBSD relayd
+sysutils/pftop/Makefile				# BROKEN until its OpenBSD ioctl backend returns
+security/bruteblock				# IGNORE: ipfw tables only
+
+# Patches and examples that remove or disclaim the old interface.
+net/mpd5/files/patch-5bsd-retire-ipfw		# the patch deletes the ipfw probe
+net-mgmt/ng_ipacct/files/ng_ipacct.conf	ipfw add	# examples marked not applicable on 5BSD
+
+# Migration notes that name the retired syntax on purpose.
+net/containernetworking-plugins/files/pf.conf.sample	OpenBSD PF has no rdr-anchor/nat-anchor
+net/containernetworking-plugins/pkg-message	there is no rdr-anchor or nat-anchor
+net/containernetworking-plugins/pkg-message	OpenBSD PF has no net.pf.filter_local
+net/containernetworking-plugins/pkg-message	Do not kldload pf by hand
+net/containernetworking-plugins/pkg-message	replace any rdr-anchor/nat-anchor lines
+net/miniupnpd/pkg-message	no separate NAT section or rdr-anchor
+
+# Not 5BSD base or ports configuration.
+devel/freebsd-sysroot				# FreeBSD cross-build sysroot
+security/vuxml					# historical FreeBSD advisories
+misc/freebsd-doc-*				# FreeBSD documentation sets

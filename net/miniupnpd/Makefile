@@ -22,7 +22,7 @@ USE_RC_SUBR=	${PORTNAME}
 
 HAS_CONFIGURE=	yes
 # 5BSD: base runs OpenBSD PF.  Use miniupnpd's native ioctl pf backend
-# (not libpfctl), configured as genconfig.sh configures OpenBSD >= 5.0:
+# (not FreeBSD's pf library), configured as genconfig.sh configures OpenBSD >= 5.0:
 # rdr-to/nat-to rules in an anchor (PF_NEWSTYLE), rtable and on rdomain.
 CONFIGURE_ARGS=	--firewall=pf
 
