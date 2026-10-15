@@ -1,6 +1,6 @@
 PORTNAME=	p0f
 PORTVERSION=	3.09b
-PORTREVISION=	1
+PORTREVISION=	2
 CATEGORIES=	net-mgmt security
 MASTER_SITES=	http://lcamtuf.coredump.cx/p0f3/releases/ \
 		http://fossies.org/unix/privat/
@@ -13,6 +13,9 @@ LICENSE=	LGPL21
 
 USES=		tar:tgz
 USE_RC_SUBR=	p0f
+
+# 5BSD: DLT_PFLOG frames carry OpenBSD's 100-byte struct pfloghdr;
+# patch-process.c takes the offset from <net/if_pflog.h> at build time.
 
 USERS=		p0f
 GROUPS=		p0f

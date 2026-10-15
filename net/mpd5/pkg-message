@@ -1,0 +1,17 @@
+[
+{ type: install
+  message: <<EOM
+5BSD runs OpenBSD PF and has no ipfw(8), so mpd5 is built without IPFW
+support.  RADIUS attributes that need ipfw (mpd-table, mpd-filter, and
+mpd-limit "pipe"/"queue" actions through dummynet) are not available;
+mpd-limit "rate-limit" and "shape" actions use netgraph (ng_car) and
+still work.  To put session addresses into pf tables, call
+"pfctl -t TABLE -T add|delete" from "set iface up-script" and
+"set iface down-script" scripts.
+
+5BSD denies kldload after boot.  Preload the netgraph node modules mpd5
+uses (for example ng_ppp, ng_pppoe, ng_mppc, ng_car, ng_nat) from
+/boot/loader.conf if they are not compiled into the kernel.
+EOM
+}
+]
