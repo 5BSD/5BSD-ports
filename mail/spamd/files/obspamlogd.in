@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # PROVIDE: obspamlogd
-# REQUIRE: NETWORKING SERVERS obspamd
+# REQUIRE: NETWORKING SERVERS obspamd pf
 # BEFORE:  DAEMON
 # KEYWORD: shutdown
 
@@ -31,11 +31,13 @@ pidfile="/var/run/spamlogd.pid"
 obspamlogd_precmd()
 {
 	if [ ! -z "${obspamlogd_pflog_if}" ]; then
-		# Configure i/f explicitly
-		load_kld pflog || {
-			warn "Unable to kldload pflog module"
+		# Configure i/f explicitly.  pflog(4) is part of pf.ko and
+		# its interfaces are cloned on demand; 5BSD denies late
+		# kldload, so pf must already be loaded (pf_enable="YES").
+		if ! ifconfig -C | grep -qw pflog; then
+			warn "pflog(4) is unavailable: enable pf(4) first"
 			return 1
-		}
+		fi
 
 		if ! ifconfig ${obspamlogd_pflog_if} create up; then
 			warn "could not bring up ${obspamlogd_pflog_if}"

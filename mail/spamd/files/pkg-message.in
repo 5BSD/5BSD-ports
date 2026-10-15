@@ -25,16 +25,19 @@ To enable spamd you need:
    The XEN kernel ships without modules, therefore you have to add
    the following lines to the kernel config and build a new kernel.
 	options FDESCFS
-	device	pf
-	device	pflog
+	device	pf	# includes pflog(4) on 5BSD
 
-5) Add following lines to the pf.conf(5)
+5) Add following lines to the pf.conf(5).  5BSD runs OpenBSD PF: the
+   redirection is an rdr-to option, and the later whitelist rule wins
+   (last match), so whitelisted hosts reach the real MTA.  "log" on the
+   whitelist rules feeds spamlogd through pflog(4).  Replace egress with
+   your external interface if the egress group is not set up.
 
   table <spamd-white> persist
-  no rdr inet proto tcp from <spamd-white> to any \
-      port smtp
-  rdr pass inet proto tcp from any to any \
-      port smtp -> 127.0.0.1 port spamd
+  pass in on egress proto tcp to any port smtp \
+      rdr-to 127.0.0.1 port spamd
+  pass in log on egress proto tcp from <spamd-white> to any port smtp
+  pass out log on egress proto tcp to any port smtp
 
 FreeBSD only features (not in OpenBSD):
   - sync for spamdb (parameter -Y)
