@@ -20,11 +20,12 @@ priv_nets = "{ 127.0.0.0/8, 192.168.0.0/16, 172.16.0.0/12, 10.0.0.0/8 }"
 set block-policy return
 set loginterface $ext_if
 
-# scrub
-scrub in all
+# OpenBSD PF (5BSD) always reassembles fragments; normalization is a
+# "match ... scrub" option rather than a separate scrub rule.
+match in all scrub (no-df)
 
-# nat/rdr
-nat on $ext_if from $chilli_if:network to any -> ($ext_if)
+# NAT (OpenBSD PF: nat-to on a match or pass rule)
+match out on $ext_if from $chilli_if:network to any nat-to ($ext_if)
 
 # filter rules
 block all

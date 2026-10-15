@@ -1,6 +1,6 @@
 PORTNAME=	coovachilli
 PORTVERSION=	1.0.12
-PORTREVISION=	2
+PORTREVISION=	3
 CATEGORIES=	net-mgmt
 MASTER_SITES=	http://ap.coova.org/chilli/ \
 		http://www.geeklan.co.uk/files/ \
@@ -31,6 +31,5 @@ post-install:
 	${MKDIR} ${STAGEDIR}/${EXAMPLESDIR}
 	${INSTALL_DATA} ${FILESDIR}/main.conf.sample ${STAGEDIR}/${EXAMPLESDIR}
 	${INSTALL_DATA} ${FILESDIR}/pf.conf.sample ${STAGEDIR}/${EXAMPLESDIR}
-	${INSTALL_DATA} ${FILESDIR}/ipfw-config.sample ${STAGEDIR}/${EXAMPLESDIR}
 
 .include <bsd.port.mk>

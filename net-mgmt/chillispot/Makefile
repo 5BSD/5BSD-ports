@@ -1,6 +1,6 @@
 PORTNAME=	chillispot
 PORTVERSION=	1.0
-PORTREVISION=	14
+PORTREVISION=	15
 CATEGORIES=	net-mgmt
 MASTER_SITES=	http://www.chillispot.info/download/ \
 		http://www.geeklan.co.uk/files/ \
@@ -39,6 +39,5 @@ post-install:
 	${INSTALL_DATA} ${WRKSRC}/doc/hotspotlogin.cgi ${STAGEDIR}${DATADIR}
 	${INSTALL_DATA} ${WRKDIR}/installguide.txt ${STAGEDIR}${DATADIR}
 	${INSTALL_DATA} ${FILESDIR}/pf.conf.sample ${STAGEDIR}${DATADIR}
-	${INSTALL_DATA} ${FILESDIR}/ipfw-config.sample ${STAGEDIR}${DATADIR}
 
 .include <bsd.port.mk>
