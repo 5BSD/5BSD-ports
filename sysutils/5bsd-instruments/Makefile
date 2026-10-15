@@ -1,5 +1,6 @@
 PORTNAME=	5bsd-instruments
 DISTVERSION=	0.3.9
+PORTREVISION=	1
 CATEGORIES=	sysutils
 MASTER_SITES=	https://github.com/5BSD/5BSD-ports/releases/download/toolkit-20261004/:toolkit \
 		https://pub.dev/api/archives/:pub \
@@ -30,7 +31,7 @@ USE_GNOME=	gtk30
 # Installed binaries always use LOCALBASE for their final engine rpath.
 DART_CMD?=	${LOCALBASE}/bin/dart
 ENGINE_PREFIX?=	${LOCALBASE}
-_BUNDLE_SEQUENCE=202610050002
+_BUNDLE_SEQUENCE=202610150001
 _PUB_PACKAGES=	characters-1.4.1 collection-1.19.1 material_color_utilities-0.13.0 \
 		meta-1.18.3 vector_math-2.4.0
 .for package in ${_PUB_PACKAGES}
@@ -70,6 +71,9 @@ do-install:
 	${INSTALL_DATA} ${WRKSRC}/examples/5bsd_desktop/assets/org.fivebsd.Instruments.svg ${STAGEDIR}${PREFIX}/share/icons/hicolor/scalable/apps/
 
 do-test:
+	cd ${WRKSRC} && ${CXX} ${CXXFLAGS} -std=c++20 -Wall -Wextra -Werror \
+		tools/5bsd/tests/pf_snapshot_test.cc -lservice -o ${WRKDIR}/pf-snapshot-test
+	${WRKDIR}/pf-snapshot-test > /dev/null
 	${PYTHON_CMD} ${FILESDIR}/test-registration.py ${FILESDIR}/5bsd-instruments-register.in ${WRKDIR}/Instruments.cap
 
 .include <bsd.port.mk>

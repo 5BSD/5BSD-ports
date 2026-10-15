@@ -12,6 +12,9 @@ For X11, use --display :0 and optionally --xauthority /home/USER/.Xauthority.
 Then launch 5bsd-instruments from that user's desktop session.
 The current System bundle supports one registered desktop account per host.
 The base must contain the system.Network.PF endpoint and working BSDTrace.
+The PF view reads OpenBSD PF states (DIOCGETSTATES, struct pfsync_state);
+it requires a 5BSD base with OpenBSD PF and does not work with the retired
+FreeBSD pf state-export ABI.
 EOM
 }
 ]
