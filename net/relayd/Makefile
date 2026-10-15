@@ -9,7 +9,13 @@ WWW=		https://github.com/KlaraSystems/freebsd-relayd
 
 LICENSE=	ISCL
 
-LIB_DEPENDS=	libpfctl.so:net/libpfctl
+# 5BSD: base runs OpenBSD PF.  This distfile is Klara's FreeBSD port of
+# relayd, whose pfe_filter.c/relay.c talk to FreeBSD pf through libpfctl
+# (retired with FreeBSD pf).  Upstream OpenBSD relayd drives the same
+# OpenBSD DIOC* ioctls, anchors ("relayd/*") and DIOCNATLOOK (with rdomain)
+# that 5BSD base provides, so the port should be re-sourced from OpenBSD
+# usr.sbin/relayd and usr.sbin/relayctl rather than patched.
+BROKEN=		needs re-sourcing from OpenBSD relayd: this FreeBSD fork requires libpfctl, which OpenBSD PF does not provide
 
 USES=		localbase:ldflags ssl uidfix
 USE_RC_SUBR=	relayd

@@ -9,23 +9,21 @@ WWW=		https://github.com/grembo/pftop/
 
 LICENSE=	BSD2CLAUSE
 
-LIB_DEPENDS=	libpfctl.so:net/libpfctl
+# 5BSD: base runs OpenBSD PF.  pftop 0.13 is the FreeBSD fork that reads
+# states, rules and labels through libpfctl (retired with FreeBSD pf), and
+# its queue view uses ALTQ, which OpenBSD PF does not have.  It needs its
+# OpenBSD ioctl backend (DIOCGETSTATES with struct pfsync_state, DIOCGETRULE,
+# DIOCGETQUEUES/DIOCGETQSTATS) restored before it can build.  On 5BSD,
+# "pfctl -ss", "pfctl -vsr" and "pfctl -vsq" give the same data meanwhile.
+BROKEN=		needs its OpenBSD PF ioctl backend restored: this FreeBSD fork requires libpfctl
 
 USES=		localbase uidfix
-
-OPTIONS_DEFINE=	ALTQ
-
-ALTQ_DESC=	ALTQ support for queue statistics
 
 .include <bsd.port.options.mk>
 
 MAKE_ARGS=	LOCALBASE="${PREFIX}" MANDIR=${PREFIX}/share/man/man
 
 CFLAGS+=	-DHAVE_SNPRINTF=1 -DHAVE_VSNPRINTF=1
-
-.if ${PORT_OPTIONS:MALTQ}
-CFLAGS+=	-DHAVE_ALTQ=1
-.endif
 
 MAKE_ARGS+=	CSTD=gnu89
 
