@@ -1,0 +1,14 @@
+[
+{ type: install
+  message: <<EOM
+fwknopd opens access with OpenBSD PF rules that it loads into the
+"fwknop" anchor.  Reference the anchor from /etc/pf.conf, after the
+rules that block the protected services (later matching rules win):
+
+  anchor "fwknop"
+
+and reload pf (service pf reload).  fwknopd checks that the anchor is
+referenced by the active ruleset.
+EOM
+}
+]

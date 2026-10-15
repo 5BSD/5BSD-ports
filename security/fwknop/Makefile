@@ -1,6 +1,6 @@
 PORTNAME=	fwknop
 PORTVERSION=	2.6.10
-PORTREVISION=	5
+PORTREVISION=	6
 CATEGORIES=	security
 MASTER_SITES=	http://www.cipherdyne.org/fwknop/download/
 
@@ -27,21 +27,15 @@ GNU_CONFIGURE_MANPREFIX=${PREFIX}/share
 INSTALL_TARGET=	install-strip
 INFO=		libfko
 
+# 5BSD: base has no ipfw(8); fwknopd always uses its PF backend, which
+# manages rules in a "fwknop" anchor through pfctl(8) (OpenBSD PF syntax).
+CONFIGURE_ARGS+=	--with-pf=/sbin/pfctl
+
 OPTIONS_DEFINE=	GPGME
 
-OPTIONS_SINGLE=	FW
-OPTIONS_SINGLE_FW=	IPFW PF
+OPTIONS_DEFAULT=	GPGME
 
-OPTIONS_DEFAULT=	GPGME IPFW
-
-FW_DESC=	Firewall Backend
-IPFW_DESC=	Use the IPFW firewall
-PF_DESC=	Use the PF firewall.
 GPGME_DESC=	Build support for gpgme
-
-IPFW_CONFIGURE_WITH=	ipfw=/sbin/ipfw
-
-PF_CONFIGURE_WITH=	pf=/sbin/pfctl
 
 GPGME_LIB_DEPENDS=	libgpgme.so:security/gpgme
 GPGME_LIB_DEPENDS+=	libgpg-error.so:security/libgpg-error
