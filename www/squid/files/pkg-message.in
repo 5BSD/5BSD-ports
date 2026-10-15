@@ -38,6 +38,13 @@
          databases/p5-DBD-Pg
          databases/p5-DBD-SQLite
 
+     o With the TP_PF option, intercept HTTP with an OpenBSD PF divert-to
+       rule and an "intercept" port in squid.conf, for example:
+
+         pass in on $int_if inet proto tcp to port www \
+             divert-to 127.0.0.1 port 3129
+         http_port 127.0.0.1:3129 intercept
+
      To enable Squid, set squid_enable=yes in either
      /etc/rc.conf, /etc/rc.conf.local or /etc/rc.conf.d/squid
      Please see %%PREFIX%%/etc/rc.d/squid for further details.

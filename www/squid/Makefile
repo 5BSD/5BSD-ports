@@ -1,5 +1,6 @@
 PORTNAME=	squid
 DISTVERSION=	7.7
+PORTREVISION=	1
 CATEGORIES=	www
 MASTER_SITES=	https://github.com/${PORTNAME}-cache/${PORTNAME}/releases/download/${PORTNAME:tu}_${DISTVERSION:S|.|_|g}/
 
@@ -59,15 +60,13 @@ PORTEXAMPLES=	*
 OPTIONS_DEFINE=		ARP_ACL CACHE_DIGESTS DEBUG DELAY_POOLS DOCS ECAP \
 			EXAMPLES FOLLOW_XFF FS_AUFS FS_DISKD FS_ROCK HTCP ICAP \
 			ICMP IPV6 KQUEUE LARGEFILE LAX_HTTP NETTLE SNMP SSL \
-			SSL_CRTD STACKTRACES TDB VIA_DB WCCP WCCPV2
+			SSL_CRTD STACKTRACES TDB TP_PF VIA_DB WCCP WCCPV2
 OPTIONS_DEFAULT=	ARP_ACL AUTH_NIS CACHE_DIGESTS DELAY_POOLS FOLLOW_XFF \
 			FS_AUFS FS_DISKD FS_ROCK GSSAPI_BASE HTCP ICAP ICMP \
-			KQUEUE LARGEFILE LAX_HTTP SNMP SSL SSL_CRTD TP_IPFW \
+			KQUEUE LARGEFILE LAX_HTTP SNMP SSL SSL_CRTD TP_PF \
 			VIA_DB WCCP WCCPV2
 OPTIONS_GROUP=		AUTH
 OPTIONS_GROUP_AUTH=	AUTH_LDAP AUTH_NIS AUTH_SASL AUTH_SMB AUTH_SQL
-OPTIONS_RADIO=		FW
-OPTIONS_RADIO_FW=	TP_IPF TP_IPFW TP_PF
 OPTIONS_SINGLE=		GSSAPI
 OPTIONS_SINGLE_GSSAPI=	GSSAPI_BASE GSSAPI_HEIMDAL GSSAPI_MIT GSSAPI_NONE
 OPTIONS_SUB=		yes
@@ -99,9 +98,7 @@ SSL_CRTD_DESC=		Use ssl_crtd to handle SSL cert requests
 SSL_DESC=		SSL gatewaying support
 STACKTRACES_DESC=	Enable automatic backtraces on fatal errors
 TDB_DESC=		TrivialDB support required for session and time quota external helpers
-TP_IPFW_DESC=		Transparent proxying with IPFW
-TP_IPF_DESC=		Transparent proxying with IPFilter
-TP_PF_DESC=		Transparent proxying with PF
+TP_PF_DESC=		Transparent proxying with PF divert-to
 VIA_DB_DESC=		Forward/Via database
 WCCPV2_DESC=		Web Cache Coordination Protocol v2
 WCCP_DESC=		Web Cache Coordination Protocol
@@ -185,10 +182,10 @@ TDB_LIB_DEPENDS=		libtdb.so:${SAMBA_TDB_PORT}
 TDB_USES=			samba:env
 TDB_CONFIGURE_WITH=		tdb
 TDB_VARS=			EXTERNAL_ACL+="time_quota session"
-TP_IPFW_CONFIGURE_ENABLE=	ipfw-transparent
-TP_IPF_CONFIGURE_ENABLE=	ipf-transparent
+# 5BSD: base has neither ipfw(8) nor IPFilter.  OpenBSD PF's divert-to
+# keeps the original destination as the socket's local address, so squid
+# needs no /dev/pf NAT lookup (no --with-nat-devpf).
 TP_PF_CONFIGURE_ENABLE=		pf-transparent
-TP_PF_CONFIGURE_WITH=		nat-devpf
 VIA_DB_CONFIGURE_ENABLE=	forw-via-db
 WCCPV2_CONFIGURE_ENABLE=	wccpv2
 WCCP_CONFIGURE_ENABLE=		wccp
