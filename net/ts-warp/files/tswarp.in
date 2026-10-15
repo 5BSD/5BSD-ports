@@ -44,19 +44,14 @@ ts_warp_prestart()
 
     echo "Configuring PF for TS-Warp"
 
+    # 5BSD runs OpenBSD PF: there is no rdr-anchor; one anchor holds
+    # the redirection and filter rules.
     awk -v pf_conf=${tswarp_pfconf} '
             /ts-warp/       {next}
             /ns-warp/       {next}
-            /rdr-anchor/    {rdrpos = NR}
-                            {pf[NR] = $0}
+                            {print}
 
         END {
-            for (i = 0; i < NR; i++)
-                if (i == rdrpos + 1) {
-                    print("rdr-anchor \"ts-warp\"")
-                    print("rdr-anchor \"ns-warp\"")
-                } else
-                    print(pf[i])
             print("anchor \"ts-warp\"")
             print("anchor \"ns-warp\"")
             printf("load anchor \"ts-warp\" from \"%s\"\n", pf_conf)
