@@ -20,6 +20,12 @@ NOTE:
 	rc.d/suricata will automatically try to start Suricata in IPS Mode
 	(on divert port 8000, by default).
 
+	5BSD has no ipfw(8): send packets to the divert(4) socket with
+	OpenBSD PF divert-packet rules in pf.conf, for example:
+
+	pass in on $ext_if divert-packet port 8000
+	pass out on $ext_if divert-packet port 8000
+
 Alternatively, if you want to run Suricata in Inline IPS Mode in high-speed
 netmap(4) mode, add to /etc/rc.conf:
 

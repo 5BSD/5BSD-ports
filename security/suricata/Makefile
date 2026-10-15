@@ -1,5 +1,6 @@
 PORTNAME=	suricata
 DISTVERSION=	8.0.7
+PORTREVISION=	1
 CATEGORIES=	security
 MASTER_SITES=	https://www.openinfosecfoundation.org/download/
 
@@ -35,9 +36,9 @@ TEST_TARGET=	check
 
 SUB_FILES=	pkg-message
 
-OPTIONS_DEFINE=		GEOIP IPFW NETMAP NSS PORTS_PCAP PYTHON REDIS TESTS
+OPTIONS_DEFINE=		DIVERT GEOIP NETMAP NSS PORTS_PCAP PYTHON REDIS TESTS
 OPTIONS_DEFINE_amd64=	HYPERSCAN
-OPTIONS_DEFAULT=	IPFW NETMAP PYTHON
+OPTIONS_DEFAULT=	DIVERT NETMAP PYTHON
 
 OPTIONS_RADIO=		SCRIPTS
 OPTIONS_RADIO_SCRIPTS=	LUA LUAJIT
@@ -46,7 +47,7 @@ OPTIONS_SUB=	yes
 
 GEOIP_DESC=		GeoIP support
 HYPERSCAN_DESC=		Hyperscan support
-IPFW_DESC=		IPFW and IP Divert support for inline IDP
+DIVERT_DESC=		divert(4) inline IPS (PF divert-packet)
 LUAJIT_DESC=		LuaJIT scripting support
 LUA_DESC=		LUA scripting support
 NETMAP_DESC=		Netmap support for inline IDP
@@ -62,7 +63,9 @@ GEOIP_CONFIGURE_ON=	--enable-geoip
 
 HYPERSCAN_LIB_DEPENDS=	libhs.so:devel/hyperscan
 
-IPFW_CONFIGURE_ON=	--enable-ipfw
+# 5BSD: base has no ipfw(8); PF divert-packet rules feed divert(4)
+# sockets.  Suricata's divert-socket runmode is still called "ipfw".
+DIVERT_CONFIGURE_ON=	--enable-ipfw
 
 LUAJIT_USES=		luajit
 LUAJIT_CONFIGURE_ON=	--enable-luajit
