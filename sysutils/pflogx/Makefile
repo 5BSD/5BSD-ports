@@ -1,5 +1,6 @@
 PORTNAME=	pflogx
 PORTVERSION=	0.86
+PORTREVISION=	1
 CATEGORIES=	sysutils
 MASTER_SITES=	http://akldev.free.fr/pflogx/releases/
 DISTNAME=	${PORTNAME}_${PORTVERSION:S/.//}
@@ -12,6 +13,9 @@ LICENSE=	BSD2CLAUSE
 LICENSE_FILE=	${WRKSRC}/LICENSE
 
 WRKSRC=		${WRKDIR}/${PORTNAME}
+
+# 5BSD: base installs OpenBSD's <net/pfvar.h> and <net/if_pflog.h>, so
+# upstream's original pf includes are used; FreeBSD's <netpfil/pf/pf.h> is gone.
 
 OPTIONS_DEFINE=	EXPAT DOCS EXAMPLES
 

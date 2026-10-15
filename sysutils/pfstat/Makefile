@@ -1,6 +1,6 @@
 PORTNAME=	pfstat
 DISTVERSION=	2.5
-PORTREVISION=	9
+PORTREVISION=	10
 CATEGORIES=	sysutils net
 MASTER_SITES=	https://www.benzedrine.ch/
 
@@ -10,15 +10,18 @@ WWW=		https://www.benzedrine.ch/pfstat.html
 
 LICENSE=	BSD2CLAUSE
 
+# 5BSD: base runs OpenBSD PF.  The global counters use upstream's native
+# DIOCGETSTATUS path again, but the queue collector still uses the ALTQ
+# ioctls (DIOCGETALTQS, struct pfioc_altq), which OpenBSD PF does not have.
+BROKEN=		queue statistics need porting from ALTQ to OpenBSD PF queues (DIOCGETQUEUES/DIOCGETQSTATS)
+
 LIB_DEPENDS=	libgd.so:graphics/gd \
-		libpfctl.so:net/libpfctl \
 		libpng.so:graphics/png
 
 USES=		iconv jpeg localbase:ldflags
 USE_RC_SUBR=	pfstatd
 
 CFLAGS+=	-I/usr/include/net
-LDFLAGS+=	-lpfctl
 
 PLIST_FILES=	bin/pfstat \
 		bin/pfstatd \

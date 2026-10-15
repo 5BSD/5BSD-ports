@@ -1,6 +1,6 @@
 PORTNAME=	proxy-suite
 PORTVERSION=	1.9.2.4
-PORTREVISION=	4
+PORTREVISION=	5
 CATEGORIES=	net
 MASTER_SITES=	ftp://ftp.suse.com/pub/projects/proxy-suite/src/
 
@@ -52,8 +52,10 @@ MAKE_ARGS=	INST_ROOT=${STAGEDIR} CONF_DST=ftp-proxy.conf.sample
 
 SUB_FILES=	pkg-message
 
-post-patch:
-	@${REINPLACE_CMD} 's,net/pfvar.h,,' ${WRKSRC}/configure
+# 5BSD: base runs OpenBSD PF, whose <net/pfvar.h> is usable from userland,
+# so configure detects it again and ftp-proxy finds transparently
+# redirected destinations with DIOCNATLOOK instead of IPFilter's ipnat.
+# (The FreeBSD port hid pfvar.h from configure.)
 
 pre-install:
 	${STRIP_CMD} ${WRKSRC}/ftp-proxy/ftp-proxy
