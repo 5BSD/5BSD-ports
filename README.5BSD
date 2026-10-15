@@ -222,6 +222,20 @@ The engine and Instruments source archives are still staged locally pending
 publication of the exact checksummed toolkit-20261004 release assets. A fresh
 remote ports fetch and a full GUI install on a VM have not yet been validated.
 
+2026-10-15: sysutils/5bsd-instruments revision 1 (bundle sequence
+202610150001) reads PF states through the OpenBSD PF ABI that base now
+provides. The system.Network.PF descriptor admits only DIOCGETSTATES ('D' 25,
+struct pfioc_states of packed struct pfsync_state); the client's pf_protocol.h
+copy matches base usr.sbin/BSDNetwork/pf_protocol.h and the FreeBSD 'D' 93
+pfioc_states_v2/pf_state_export decoder is gone. The decoder handles per-key
+address families (af-to), split big-endian 64-bit counters and the ICMP id
+slot as pfctl -ss does; the text format read by the Dart parser is unchanged.
+do-test now also builds and runs tools/5bsd/tests/pf_snapshot_test.cc. The
+test was compiled with -Wall -Wextra -Werror against the 5BSD world sysroot
+and its formatting/capability checks passed statically linked; the toolkit
+distfiles were not available, so the port itself was not rebuilt and the
+live broker path is untested.
+
 2026-10-10 PF consolidation:
 security/sshguard revision 3 selects the PF backend by default and installs
 only the PF firewall script (the native hosts helper remains). Remove the
@@ -230,3 +244,107 @@ revision 20 removes the upstream IPFW configure probe and compile definition.
 Both pinned distfiles pass their existing SHA256 checks; port patches apply
 and private builds/staging and check-plist pass. No package installation performed. Evidence:
 /usr/obj/5BSD-pf-consolidation-20261010/{sshguard,mpd}-stage.log.
+
+OpenBSD PF transition (2026-10-15)
+---------------------------------
+5BSD base replaced FreeBSD pf with OpenBSD PF. __FreeBSD_version (1600027
+when it landed) does not identify the change, so ports must not infer the pf
+interface from OSVERSION. For ports this means:
+
+  - <net/pfvar.h>, <net/if_pflog.h>, <net/if_pfsync.h> and <net/if_pflow.h>
+    are OpenBSD's and usable from userland; FreeBSD's <netpfil/pf/*.h> are
+    gone. pf(4) is driven only through OpenBSD's DIOC* ioctls: there is no
+    libpfctl, no nvlist pf ioctls and no pf netlink family. Ports whose
+    OSVERSION >= 1500000 branches select libpfctl take the wrong path.
+  - pfctl(8) parses and prints OpenBSD syntax: nat-to/rdr-to/binat-to on
+    match or pass rules, plain "anchor" (no rdr-anchor, nat-anchor or
+    binat-anchor), "match ... scrub (...)", no ALTQ. "rdr pass" and
+    "nat on ... ->" no longer load. pf queueing (OpenBSD "queue") is not
+    available yet; ALTQ is retired.
+  - pflog(4), pfsync(4) and pflow(4) are cloned interfaces inside pf.ko,
+    created with "ifconfig pflogN create"; there are no separate modules.
+    5BSD's capability plane denies kldload after boot: modules are preloaded
+    from loader.conf or loaded during boot (rc.subr load_kld, -b through the
+    SystemExtension broker), never by a daemon's rc script later.
+  - pflog captures carry OpenBSD's 100-byte struct pfloghdr; anything that
+    hard-codes a header length or uses PFLOG_HDRLEN must be rebuilt.
+  - DIOCNATLOOK uses OpenBSD's struct pfioc_natlook with rdomain/rrdomain
+    fields (a different size and ioctl number): NAT-lookup users must be
+    rebuilt and must zero the request. divert-to (original destination from
+    getsockname) is preferred for transparent proxies.
+  - divert(4) sockets (socket(PF_INET, SOCK_RAW, IPPROTO_DIVERT)) are fed by
+    pf "divert-packet" rules; ipfw, ipdivert and natd are not in base, and
+    PF_DIVERT is ipfw's ipdivert(4). SO_BINDANY exists (0x20000000; use the
+    name) and SO_RTABLE is an alias of SO_SETFIB.
+  - OpenBSD PF has no net.pf.* sysctls (net.pf.filter_local and similar);
+    lo0 traffic is filtered like any other interface.
+
+Tools/scripts/5bsd-pf-check.sh scans the tree (or given paths) for these
+retired interfaces and fails on hits not documented in
+Tools/scripts/5bsd-pf-check.allow. Run it after imports and port updates;
+the tree passed at the end of this transition.
+
+Ports changed for the transition (offline: no distfile here was available
+locally, so no code port was fetched, patched or built; pf.conf fragments
+were parsed with the 5BSD pfctl -nvf, shell scripts with sh -n, manual pages
+with mandoc -Tlint, and C field use was compile-checked against the 5BSD
+world sysroot with small models of the upstream code):
+
+  net/libpfctl            IGNORE; origin kept for upstream syncs.
+  net-mgmt/collectd5      27: pf plugin uses upstream DIOCGETSTATUS code.
+  net-mgmt/nagios-pf-plugin 5: native DIOCGETSTATUS/DIOCGETLIMIT, always
+                          with the percentage-threshold patch.
+  net/libdnet             6: upstream fw-pf.c (DIOCGETRULE, DIOCCHANGERULE);
+                          soname unchanged, consumers need no rebuild.
+  sysutils/symon          4: platform sm_pf.c (DIOCGETSTATUS) kept.
+  net/miniupnpd           2: ioctl pf backend in OpenBSD mode (PF_NEWSTYLE,
+                          rtable, onrdomain appended to config.h); message
+                          asks for 'anchor "miniupnpd"' only.
+  sysutils/pflogx         1: upstream pfvar.h/if_pflog.h includes restored.
+  sysutils/pfstat         10: libpfctl patch dropped; BROKEN because the
+                          queue collector still uses ALTQ ioctls.
+  net/proxy-suite         5: configure sees pfvar.h; ftp-proxy uses
+                          DIOCNATLOOK instead of ipnat.
+  net/relayd              BROKEN: Klara's fork needs libpfctl; re-source it
+                          from OpenBSD usr.sbin/relayd.
+  sysutils/pftop          BROKEN, ALTQ option removed: the FreeBSD fork needs
+                          libpfctl; restore its OpenBSD ioctl backend.
+  security/sslsplit 4, security/sslproxy 1: rebuilt for the natlook ABI.
+  net-mgmt/p0f            2: rebuilt for the 100-byte pflog header.
+  mail/spamd              8: OpenBSD rdr-to rules in the message; obspamlogd
+                          checks the pflog cloner instead of kldloading.
+  net/containernetworking-plugins 19: OpenBSD pf.conf.sample (match ...
+                          nat-to, one cni-rdr/* anchor) and message.
+  net-mgmt/chillispot 15, net-mgmt/coovachilli 3: OpenBSD pf.conf.sample;
+                          ipfw-config.sample no longer installed.
+  net/ts-warp             1: rc script appends plain anchors.
+  dns/dnscrypt-proxy2     9: rdr-to example on lo0; ipfw example removed.
+  net/librespeed-go       44: rdr-to example instead of ipfw fwd.
+  security/fwknop         6: PF backend only; message about the anchor.
+  www/squid               1: TP_PF (divert-to, no nat-devpf) is the default
+                          and only interception option.
+  www/transproxy          2: described as a divert-to proxy (getsockname).
+  security/suricata       1: IPFW option renamed DIVERT (--enable-ipfw is
+                          the divert-socket runmode); divert-packet rules.
+  net/tcpmssd             3: pf divert(4) socket; manual shows scrub
+                          (max-mss) and divert-packet.
+  net-mgmt/ipacctd        3: upstream IPPROTO_DIVERT socket (pf divert).
+  net-mgmt/ng_ipacct      3: no rc-time kldload by default; ipfw ng_ksocket
+                          examples marked not applicable.
+  security/knock          2: sample knockd.conf uses a pf table.
+  security/bruteblock     IGNORE: ipfw tables only.
+  net/throttled           BROKEN: startup script and rc need ipfw.
+  security/ossec-hids*    3.8.0_1: only NOFW/PF active response; ipfw and
+                          IPFilter scripts not installed.
+  security/wazuh-agent, wazuh-manager 1: ipfw active response not installed.
+  net/mpd5                21: message on IPFW-less RADIUS features and
+                          preloading netgraph modules.
+
+Unchanged: net/openntpd and net/mlvpn keep their SO_SETFIB patches, which
+are now equivalent to upstream's SO_RTABLE code.
+
+Needs source/runtime review (distfiles not available offline): jail managers
+sysutils/bastille, pot, cbsd, reggae, appjail and qjail, which generate or
+document pf rules; the containernetworking plugins' runtime rule generation;
+ts-warp's installed ts-warp_pf_freebsd.conf sample and natlook path. Every
+converted code port above still needs a native build and a VM runtime test.
