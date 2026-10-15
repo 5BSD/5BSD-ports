@@ -1,6 +1,6 @@
 PORTNAME=	symon
 DISTVERSION=	2.90
-PORTREVISION=	3
+PORTREVISION=	4
 CATEGORIES=	sysutils
 MASTER_SITES=	https://wpd.home.xs4all.nl/symon/philes/
 
@@ -61,19 +61,8 @@ SYMUX_VARS=		SUBDIR+=symux \
 post-patch:
 # We need to teach symon about mbstat changes/removal in r253351 and r253361.
 	@${RM} ${WRKSRC}/platform/FreeBSD/sm_mbuf.c
-# We need to teach symon about pf API changes from FreeBSD 15 onwards.
-
-# Until someone can update sm_pf.c to use the nvlist variants, remove it
-# from FreeBSD 15 installs, as it no longer works due to the removal of
-# DIOCGETSTATUS. Patches welcome!
-# See https://lists.freebsd.org/archives/freebsd-pf/2023-April/000345.html
-# Subject: pf: remove DIOCGETRULE and DIOCGETSTATUS
-# Author: Kristof Provost <kp@FreeBSD.org>
-# Date: 2023-08-29 15:17:24 +0000
-# Link: https://cgit.freebsd.org/src/commit/?id=8d49fd7331bc72671a14f1aac1d9cdea36672d19
-.if (${OPSYS} == FreeBSD) && ${OSVERSION} >= 1500000
-	@${RM} ${WRKSRC}/platform/FreeBSD/sm_pf.c
-.endif
+# 5BSD: base runs OpenBSD PF, which keeps DIOCGETSTATUS (struct pf_status
+# with counters, pcounters and bcounters), so the pf probe stays enabled.
 
 do-install-DOCS-on:
 	${MKDIR} ${STAGEDIR}${DOCSDIR}

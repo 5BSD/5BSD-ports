@@ -1,6 +1,6 @@
 PORTNAME=	collectd
 DISTVERSION=	5.12.0
-PORTREVISION=	26
+PORTREVISION=	27
 CATEGORIES=	net-mgmt
 MASTER_SITES=	https://storage.googleapis.com/collectd-tarballs/
 PKGNAMESUFFIX=	5
@@ -195,9 +195,7 @@ PERL_USES=		perl5
 PERL_CONFIGURE_ENABLE=	perl
 PERL_CONFIGURE_WITH=	libperl=${LOCALBASE} perl-bindings
 
-PF_LIB_DEPENDS=		libpfctl.so:net/libpfctl
 PF_CONFIGURE_ENABLE=	pf
-PF_LDFLAGS=		-lpfctl
 
 PGSQL_USES=		pgsql
 PGSQL_CONFIGURE_ENABLE=	postgresql
