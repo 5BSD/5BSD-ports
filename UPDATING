@@ -5,6 +5,17 @@ they are unavoidable.
 You should get into the habit of checking this file for changes each time
 you update your ports collection, before attempting any port upgrades.
 
+20261016:
+  AFFECTS: users of net-mgmt/ng_ipacct and sysutils/mountsmb2
+  AUTHOR: 5BSD maintainers
+
+  The example configuration no longer includes its unsupported ipfw divert
+  graph. That example used the retired ng_echo node and also required ipfw,
+  which 5BSD does not ship. The supported ng_ether examples remain.
+
+  The mountsmb2 port is marked broken because it invokes mount_smbfs. 5BSD
+  retired that SMB1-only kernel client; its source is now removed as well.
+
 20261015:
   AFFECTS: users of emulators/virtualbox-ose-legacy and print/pnm2ppa
   AUTHOR: 5BSD maintainers

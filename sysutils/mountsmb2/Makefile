@@ -7,6 +7,8 @@ MAINTAINER=	ports@FreeBSD.org
 COMMENT=	SMB/CIFS shares mounting scripts to do it at login
 WWW=		http://www.granch.ru/~shelton
 
+BROKEN=		Requires mount_smbfs, which 5BSD retired with the SMB1 kernel client
+
 RUN_DEPENDS=	nbtscan:net-mgmt/nbtscan
 
 USES=		sudo tar:bzip2
