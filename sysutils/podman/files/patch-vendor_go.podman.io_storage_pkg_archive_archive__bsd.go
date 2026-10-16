@@ -6,12 +6,12 @@ high-order bits that don't map to POSIX chmod(2) bit positions.
 
 https://github.com/podman-container-tools/container-libs/pull/935
 
---- vendor/go.podman.io/storage/pkg/archive/archive_bsd.go.orig	2025-06-28 00:00:00 UTC
+--- vendor/go.podman.io/storage/pkg/archive/archive_bsd.go.orig
 +++ vendor/go.podman.io/storage/pkg/archive/archive_bsd.go
-@@ -9,10 +9,26 @@ import (
+@@ -9,10 +9,26 @@
  	"golang.org/x/sys/unix"
  )
-
+ 
 +// syscallMode maps a Go os.FileMode to chmod(2) bits, preserving the
 +// setuid/setgid/sticky bits that a raw uint32(FileMode) cast silently drops.
 +func syscallMode(i os.FileMode) (o uint32) {
@@ -28,7 +28,7 @@ https://github.com/podman-container-tools/container-libs/pull/935
 +	return o
 +}
 +
- func handleLChmod(hdr *tar.Header, path string, hdrInfo os.FileInfo, forceMask *os.FileMode) error {
+ func handleLChmod(_ *tar.Header, path, _ string, hdrInfo os.FileInfo, forceMask *os.FileMode) error {
  	permissionsMask := hdrInfo.Mode()
  	if forceMask != nil {
  		permissionsMask = *forceMask
