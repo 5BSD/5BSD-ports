@@ -5,6 +5,17 @@ they are unavoidable.
 You should get into the habit of checking this file for changes each time
 you update your ports collection, before attempting any port upgrades.
 
+20261015:
+  AFFECTS: users of emulators/virtualbox-ose-legacy and print/pnm2ppa
+  AUTHOR: 5BSD maintainers
+
+  5BSD no longer runs 32-bit FreeBSD binaries. The legacy VirtualBox port
+  requires that execution ABI and lib32, so it is marked broken instead of
+  instructing users to re-enable removed kernel support.
+
+  The pnm2ppa printcap example now names /dev/ulpt0 for a USB printer.
+  The parallel printer device /dev/lpt0 was retired with its controller.
+
 20261003:
   AFFECTS: users of mail/postfix-current
   AUTHOR: otis@FreeBSD.org

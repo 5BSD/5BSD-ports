@@ -17,7 +17,8 @@ WWW=		https://www.virtualbox.org/
 LICENSE=	GPLv2
 LICENSE_FILE=	${WRKSRC}/COPYING
 
-ONLY_FOR_ARCHS=	amd64 i386
+ONLY_FOR_ARCHS=	amd64
+BROKEN=		Requires the retired 32-bit FreeBSD execution ABI and lib32
 
 PATCH_DEPENDS+=	${LOCALBASE}/share/kBuild/tools/GXX3.kmk:devel/kBuild
 BUILD_DEPENDS=	gtar:archivers/gtar \
@@ -141,10 +142,6 @@ ENV=
 
 .include <bsd.port.options.mk>
 
-.if ${ARCH} == "amd64"
-_ELF32!=	kldstat -q -m elf32 && ${ECHO_CMD} yes || ${ECHO_CMD} no
-.endif
-
 .if ${PORT_OPTIONS:MDEBUG}
 KMK_BUILDTYPE=	debug
 KMK_FLAGS+=	BUILD_TYPE=debug
@@ -213,19 +210,6 @@ PLIST_SUB+=	PYTHON_PYCDIR=/ \
 
 .if ${SSL_DEFAULT} != base
 CONFIGURE_ARGS+=	--with-openssl-dir="${OPENSSLBASE}"
-.endif
-
-pre-everything::
-.if ${ARCH} == "amd64"
-.if ${_ELF32} != yes
-	@${ECHO_MSG} 'Requires 32-bit runtime support in kernel.'
-	@${ECHO_MSG} 'Rebuild kernel with "options COMPAT_FREEBSD32" and reboot.'
-	@${FALSE}
-.elif !exists(/usr/lib32/libc.so)
-	@${ECHO_MSG} 'Requires 32-bit libraries installed under /usr/lib32.'
-	@${ECHO_MSG} 'Do: cd /usr/src; make build32 install32; service ldconfig restart'
-	@${FALSE}
-.endif
 .endif
 
 post-patch:
