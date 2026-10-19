@@ -321,6 +321,10 @@ world sysroot with small models of the upstream code):
                           kernel's "egress" group, with the pass rule match
                           rules need; message.  Seam test in base:
                           tests/sys/netpfil/integration/containers.
+  sysutils/podman         5.8.8: security update (CVE-2025-11395,
+                          CVE-2026-79699, CVE-2026-79705, CVE-2026-94603);
+                          the archive_bsd.go setuid/setgid/sticky patch is
+                          regenerated for handleLChmod().
   net-mgmt/chillispot 15, net-mgmt/coovachilli 3: OpenBSD pf.conf.sample;
                           ipfw-config.sample no longer installed.
   net/ts-warp             1: rc script appends plain anchors.
@@ -346,6 +350,20 @@ world sysroot with small models of the upstream code):
   net/mpd5                21: message on IPFW-less RADIUS features and
                           preloading netgraph modules.
 
+Podman qualification: sysutils/podman-suite (podman 5.8.8, conmon, buildah,
+ocijail and net/containernetworking-plugins with the portmap patches above)
+was built from this tree and run in a 5BSD VM on the OpenBSD PF kernel with
+the plugins' pf.conf.sample. The pf-parity test podman-pf.sh passes all 11
+checks: outbound NAT through <cni-nat>, published ports from another host
+and from the host itself (127.0.0.1 and its own address), the per-container
+rdr anchor, a published port surviving "pfctl -f", teardown of the anchor,
+the table entry and the port, the unpatched FreeBSD plugin refused with a
+syntax error, and a clean console. Podman is installed from ports; it is not
+part of base yet: the system-ports pipeline that would ship it with base
+(5BSD src branch pf/podman-base) is not merged, and devel/glib20, which
+sysutils/conmon needs, still pulls Python into the runtime closure, which
+base may not ship.
+
 Unchanged: net/openntpd and net/mlvpn keep their SO_SETFIB patches, which
 are now equivalent to upstream's SO_RTABLE code.
 
@@ -353,4 +371,6 @@ Needs source/runtime review (distfiles not available offline): jail managers
 sysutils/bastille, pot, cbsd, reggae, appjail and qjail, which generate or
 document pf rules;
 ts-warp's installed ts-warp_pf_freebsd.conf sample and natlook path. Every
-converted code port above still needs a native build and a VM runtime test.
+converted code port above except sysutils/podman and
+net/containernetworking-plugins still needs a native build and a VM runtime
+test.
