@@ -347,6 +347,9 @@ world sysroot with small models of the upstream code):
   security/ossec-hids*    3.8.0_1: only NOFW/PF active response; ipfw and
                           IPFilter scripts not installed.
   security/wazuh-agent, wazuh-manager 1: ipfw active response not installed.
+  security/py-fail2ban    1: IPFilter's ippool action not installed; the pf
+                          action (anchor f2b/<jail>, table, -T kill) works
+                          with OpenBSD pfctl.
   net/mpd5                21: message on IPFW-less RADIUS features and
                           preloading netgraph modules.
 

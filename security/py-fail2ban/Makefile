@@ -1,5 +1,6 @@
 PORTNAME=	fail2ban
 DISTVERSION=	1.1.1
+PORTREVISION=	1
 CATEGORIES=	security python
 PKGNAMEPREFIX=	${PYTHON_PKGNAMEPREFIX}
 
@@ -50,6 +51,8 @@ FAIL2BAN_DBDIR=	/var/db/${PORTNAME}
 PLIST_SUB=	FAIL2BAN_DBDIR=${FAIL2BAN_DBDIR}
 
 post-patch:
+	# IPFilter is retired in 5BSD; retain the independent PF action.
+	@${RM} ${WRKSRC}/config/action.d/ippool.conf
 	@${REINPLACE_CMD} -e 's,/etc/fail2ban,${ETCDIR},g' ${FILES}
 	@${REINPLACE_CMD} -e 's,paths-debian.conf,paths-freebsd.conf,g' \
 		${WRKSRC}/config/jail.conf
