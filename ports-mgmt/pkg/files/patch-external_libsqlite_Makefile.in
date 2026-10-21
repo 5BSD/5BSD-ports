@@ -1,0 +1,10 @@
+--- external/libsqlite/Makefile.in.orig
++++ external/libsqlite/Makefile.in
+@@ -23,7 +23,6 @@
+ 		-DSQLITE_OMIT_TCL_VARIABLE \
+ 		-DSQLITE_OMIT_UTF16 \
+ 		-DSQLITE_OMIT_CAT \
+-		-DSQLITE_OMIT_CHECK \
+ 		-DSQLITE_OMIT_AUTOINIT \
+ 		-DSQLITE_OMIT_COMPILEOPTION_DIAGS \
+ 		-DSQLITE_OMIT_INTEGRITY_CHECK \

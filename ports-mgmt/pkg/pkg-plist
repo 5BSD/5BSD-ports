@@ -68,3 +68,26 @@ share/man/man8/pkg-which.8.gz
 share/man/man8/pkg.8.gz
 share/zsh/site-functions/_pkg
 @dir lib/compat/pkg
+@dir etc
+@dir etc/bash_completion.d
+@dir etc/periodic
+@dir etc/periodic/daily
+@dir etc/periodic/security
+@dir etc/periodic/weekly
+@dir include
+@dir include/pkg
+@dir lib
+@dir libdata
+@dir libdata/pkgconfig
+@dir sbin
+@dir share
+@dir share/man
+@dir share/man/man3
+@dir share/man/man5
+@dir share/man/man8
+@dir share/zsh
+@dir share/zsh/site-functions
+%%PORTDOCS%%@dir %%DOCSDIR%%
+%%PORTDOCS%%@dir share/doc
+@dir lib/compat
+@dir libdata/ldconfig
