@@ -776,6 +776,8 @@ ${_LICENSE_COOKIE}:
 .    if !defined(NO_LICENSES_INSTALL)
 .      for sp in ${_PKGS}
 .        if ${sp} == ${PKGBASE}
+# Directory metadata is required for complete package-derived generations.
+PLIST_DIRS+=	${_LICENSE_DIR.${sp}:H} ${_LICENSE_DIR.${sp}}
 PLIST_FILES+=	${_LICENSE_CATALOG.${sp}} \
 				${_LICENSE_REPORT.${sp}}
 .          if ${_LICENSE_COMB} == "single"
@@ -788,6 +790,7 @@ PLIST_FILES+=	${_LICENSE_DIR.${sp}}/${lic}
 .            endfor
 .          endif
 .        else
+PLIST_DIRS${_SP.${sp}}+=	${_LICENSE_DIR.${sp}:H} ${_LICENSE_DIR.${sp}}
 PLIST_FILES${_SP.${sp}}+=	${_LICENSE_CATALOG.${sp}} \
 				${_LICENSE_REPORT.${sp}}
 .          if ${_LICENSE_COMB} == "single"

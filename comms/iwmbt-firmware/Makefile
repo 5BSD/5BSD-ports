@@ -1,5 +1,6 @@
 PORTNAME=	iwmbt-firmware
 DISTVERSION=	20251111
+PORTREVISION=	1
 DEB_REVISION=	1
 CATEGORIES=	comms
 MASTER_SITES=	DEBIAN/pool/non-free-firmware/f/firmware-nonfree/:main \
@@ -28,6 +29,7 @@ EXTRACT_FILES=	usr/lib/firmware/intel/ibt-* \
 		usr/share/doc/firmware-iwlwifi/copyright
 NO_ARCH=	yes
 NO_BUILD=	yes
+PLIST_DIRS+=	${DATADIR}
 
 # PR/267581: Downgrade ibt-hw-37.8.10-fw-22.50.19.14.f.bseq to fw_patch_num 36
 post-extract:

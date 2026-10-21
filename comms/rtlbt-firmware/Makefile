@@ -1,5 +1,6 @@
 PORTNAME=	rtlbt-firmware
 DISTVERSION=	20251111
+PORTREVISION=	1
 DEB_REVISION=	1
 CATEGORIES=	comms
 MASTER_SITES=	DEBIAN/pool/non-free-firmware/f/firmware-nonfree/
@@ -16,6 +17,7 @@ LICENSE_FILE=	${WRKDIR}/usr/share/doc/firmware-realtek/copyright
 LICENSE_PERMS=	dist-mirror dist-sell pkg-mirror pkg-sell auto-accept
 
 NO_BUILD=	yes
+PLIST_DIRS+=	${DATADIR}
 NO_ARCH=	yes
 
 EXTRACT_CMD=	${AR}
