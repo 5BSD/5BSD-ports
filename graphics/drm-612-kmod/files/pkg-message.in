@@ -7,6 +7,10 @@ APUs starting with HD3000 / Sandy Bridge) through kld_list in
 /etc/rc.conf. radeonkms for older AMD GPUs can be loaded and there are
 some positive reports if EFI boot is NOT enabled.
 
+5BSD no longer supports Intel graphics generations 2 through 5 (including
+Ironlake). The i915kms support floor is Sandy Bridge, generation 6.
+The retired AGP/GMCH backend is not included.
+
 For amdgpu: kld_list="amdgpu"
 For Intel: kld_list="i915kms"
 For radeonkms: kld_list="radeonkms"

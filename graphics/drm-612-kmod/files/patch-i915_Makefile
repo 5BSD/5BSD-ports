@@ -1,0 +1,10 @@
+--- i915/Makefile.orig
++++ i915/Makefile
+@@ -203,7 +203,6 @@
+ 	intel_execlists_submission.c \
+ 	intel_ggtt.c \
+ 	intel_ggtt_fencing.c \
+-	intel_ggtt_gmch.c \
+ 	intel_gsc.c \
+ 	intel_gt.c \
+ 	intel_gt_buffer_pool.c \
