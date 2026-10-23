@@ -8,9 +8,10 @@
  #include <net/pfvar.h>
  #include <arpa/inet.h>
  #include <libservice.h>
-@@ -17,7 +18,17 @@
+@@ -17,7 +18,18 @@
  #include <unistd.h>
  #include "pf_protocol.h"
++#include <networkcmp.h>
  
 -inline std::string PfEndpoint(const pf_state_key_export& key, int index, int family) {
 +// pf(4) exports states as OpenBSD's packed struct pfsync_state (DIOCGETSTATES).
@@ -27,7 +28,7 @@
    char address[INET6_ADDRSTRLEN];
    if (!inet_ntop(family, &key.addr[index], address, sizeof(address))) return "unknown";
    const auto port = std::to_string(ntohs(key.port[index]));
-@@ -29,45 +40,65 @@
+@@ -29,45 +41,65 @@
    if (protocol == IPPROTO_UDP && value < 3) return value == 0 ? "NO_TRAFFIC" : value == 1 ? "SINGLE" : "MULTIPLE";
    return std::to_string(value);
  }
@@ -118,7 +119,7 @@
        if (states[i].af != AF_INET && states[i].af != AF_INET6) return EAFNOSUPPORT;
        output += PfFormat(states[i]);
        if (output.size() > maximum) { output.clear(); return EOVERFLOW; }
-@@ -76,6 +107,19 @@
+@@ -76,6 +108,33 @@
    }
    return EOVERFLOW;
  }
@@ -135,14 +136,21 @@
 +  if (cap_fcntls_get(fd, &fcntls) || fcntls != 0) return EPROTO;
 +  return 0;
 +}
- inline int PfOpenDescriptor(int& result) {
++// system.Network.PF speaks FIDL bsd.network.v1 (protocol NetworkPf): the base
++// library (libnetworkcmp, networkcmp_pf_open(3)) opens the one-shot session,
++// negotiates, receives the descriptor and refuses one whose rights differ from
++// the contract.  PfValidateDescriptor is the runner's own check of the same.
++inline int PfOpenDescriptor(int& result) {
++  result = -1;
++  int fd = -1;
++  if (networkcmp_pf_open(&fd)) return errno;
++  if (const int error = PfValidateDescriptor(fd)) { close(fd); return error; }
++  result = fd;
++  return 0;
++}
++// The hand-written PFS1 record exchange, which the provider no longer speaks;
++// retained unused until the next source snapshot drops it.
++inline int PfOpenDescriptorRecord(int& result) {
+-inline int PfOpenDescriptor(int& result) {
    result = -1;
    int connection = -1;
-@@ -92,6 +136,7 @@
-       incoming.nfds != (response.error == 0 ? 1u : 0u))) error = EPROTO;
-   if (!error) error = response.error;
-   service_session_close(session);
-+  if (!error) error = PfValidateDescriptor(fd);
-   if (!error && service_harden_fd(fd, 0)) error = errno;
-   if (error) { if (fd >= 0) close(fd); }
-   else result = fd;

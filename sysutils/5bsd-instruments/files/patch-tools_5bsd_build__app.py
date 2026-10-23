@@ -86,7 +86,7 @@
 -         '-L' + str(bundle / 'lib'), '-lflutter_5bsd_gtk', '-ltracecmp', '-ldtrace', '-lservice',
 -         '-Wl,-rpath,$ORIGIN/lib', *flags, '-o', bundle / args.binary_name])
 +         '-I' + str(prefix / 'include' if prefix else SRC / 'flutter/shell/platform/linux/public'),
-+         '-L' + str(prefix / 'lib' if prefix else bundle / 'lib'), '-lflutter_5bsd_gtk', '-ltracecmp', '-ldtrace', '-lservice',
++         '-L' + str(prefix / 'lib' if prefix else bundle / 'lib'), '-lflutter_5bsd_gtk', '-ltracecmp', '-ldtrace', '-lservice', '-lnetworkcmp',
 +         '-Wl,-rpath,' + (str(runtime_prefix / 'lib') if prefix else '$ORIGIN/lib'), *flags, '-o', bundle / args.binary_name])
      (bundle / 'libexec').mkdir(exist_ok=True)
      run(['clang', '-O2', '-Wall', '-Wextra', ROOT / 'examples/5bsd_desktop/runner/trace.c',

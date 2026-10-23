@@ -1,6 +1,6 @@
 PORTNAME=	5bsd-instruments
 DISTVERSION=	0.3.9
-PORTREVISION=	1
+PORTREVISION=	2
 CATEGORIES=	sysutils
 MASTER_SITES=	https://github.com/5BSD/5BSD-ports/releases/download/toolkit-20261004/:toolkit \
 		https://pub.dev/api/archives/:pub \
