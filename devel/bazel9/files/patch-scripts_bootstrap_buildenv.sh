@@ -1,6 +1,17 @@
---- scripts/bootstrap/buildenv.sh.orig	2020-10-07 21:26:37 UTC
+--- scripts/bootstrap/buildenv.sh.orig
 +++ scripts/bootstrap/buildenv.sh
-@@ -230,7 +230,7 @@ function clear_log() {
+@@ -206,7 +206,9 @@
+     local errfile="${OUTPUT_DIR}/errors"
+ 
+     echo "${@}" >"${errfile}"
+-    if ! "${@}" >>"${errfile}" 2>&1; then
++    if "${@}" >>"${errfile}" 2>&1; then
++      :
++    else
+       local exitcode=$?
+       cat "${errfile}" 1>&2
+       exit $exitcode
+@@ -230,7 +232,7 @@
    rm -f ${phasefile}
  }
  
