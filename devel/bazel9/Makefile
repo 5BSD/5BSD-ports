@@ -37,7 +37,7 @@ GOROOT=		${LOCALBASE}/go${GO_SUFFIX}
 .include <bsd.port.pre.mk>
 
 .if ${ARCH} == "aarch64"
-BAZEL_JAVAC_OPTS+=	"-J-Xmx1g -J-Xms128m"
+BAZEL_JAVAC_OPTS+=	-J-Xmx1g -J-Xms128m
 .endif
 
 # Have the location of the system-wide rc file reside ${ETCDIR}.
@@ -82,7 +82,7 @@ do-build:
 	BAZEL_DEV_VERSION_OVERRIDE='${PORTVERSION}' \
 	PATH=${LOCALBASE}/bin:$$PATH \
 	SOURCE_DATE_EPOCH=$${SOURCE_DATE_EPOCH} \
-	BAZEL_JAVAC_OPTS=${BAZEL_JAVAC_OPTS} \
+	BAZEL_JAVAC_OPTS=${BAZEL_JAVAC_OPTS:Q} \
 	EXTRA_BAZEL_ARGS='--jobs=${MAKE_JOBS_NUMBER} --strategy=Javac=standalone --host_javabase=@local_jdk//:jdk --java_runtime_version=local_jdk --tool_java_runtime_version=local_jdk --java_language_version=${JAVA_PORT_VERSION} --tool_java_language_version=${JAVA_PORT_VERSION} --extra_toolchains=//toolchain_local:freebsd_python3_toolchain,//toolchain_local:local_jdk_21_runtime,//toolchain_local:local_jdk_21_bootstrap --action_env=PATH=${LOCALBASE}/bin:/bin:/usr/bin:/sbin:/usr/sbin --repo_env=GOROOT=${GOROOT} --host_linkopt=-lm --linkopt=-lm' \
 	${LOCALBASE}/bin/bash ./compile.sh)
 
