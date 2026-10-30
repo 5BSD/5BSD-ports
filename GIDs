@@ -772,7 +772,7 @@ statsd:*:826:
 _tuptime:*:827:
 cirrus:*:828:
 # free: 829
-# free: 830
+# 830: reserved for the base system _otel user (OpenTelemetry exporters)
 telemt:*:831:
 beehive:*:832:
 bhyvemgrd:*:833:
