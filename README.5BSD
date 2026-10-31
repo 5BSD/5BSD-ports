@@ -48,6 +48,18 @@ of the release and exact checksummed assets remains a publication blocker.
 Existing validation notes below describe prior work, not tests rerun during
 this inventory audit. No additional Imager validation is claimed here.
 
+QEMU and ocijail (2026-10-31): emulators/qemu is 11.1.3. It keeps the
+5BSD TCG x86 page-straddle fix (patch-target_i386_tcg_access.c; 11.1.3
+upstream still has the size1 - len wrap). New patches build it without
+ppbus(4), which 5BSD retired, so the "parallel" chardev backend is absent.
+The fstpt/fldt straddle reproducer passed under TCG. sysutils/ocijail
+0.6.1_1 builds with devel/bazel9 through a Bzlmod MODULE.bazel (files/patch-*,
+written so upstream can take them), with no Bazel 5. The pinned
+files/MODULE.bazel.lock and the bzlmod-cache distfile, a Bazel repository
+cache, make module resolution work offline. That distfile must be uploaded
+to the 5BSD-ports release area named in MASTER_SITES. Until then, its
+availability blocks publication.
+
 GGML CPU affinity: misc/ggml now carries a native FreeBSD pthread affinity
 patch and an explicit pthread link dependency (port revision 2). Vulkan-only
 LLVM/SPIR-V build dependencies are conditional, so the CPU-only package builds
