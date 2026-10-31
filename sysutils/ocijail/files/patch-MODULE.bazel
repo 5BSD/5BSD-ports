@@ -1,0 +1,30 @@
+--- MODULE.bazel.orig	1970-01-01 00:00:00 UTC
++++ MODULE.bazel
+@@ -0,0 +1,27 @@
++"""ocijail: OCI-compatible runtime for FreeBSD jails (Bzlmod; Bazel 7.1 or later)."""
++
++module(name = "ocijail", version = "0.6.1")
++
++bazel_dep(name = "platforms", version = "1.0.0")
++bazel_dep(name = "rules_cc", version = "0.2.17")
++bazel_dep(name = "rules_shell", version = "0.6.1")
++bazel_dep(name = "rules_python", version = "1.7.0", dev_dependency = True)
++
++http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
++
++# Header-only libraries.  The archives are also vendored in distfiles/
++# (see prefetch-deps.sh) so that `--distdir=distfiles` builds them offline.
++http_archive(
++    name = "cliutils_cli11",
++    build_file = "//third_party:BUILD.cli11",
++    sha256 = "562c4be7507dc6fb4997ecd648bf935d84efe17b54715fa5cfbddac05279f668",
++    strip_prefix = "CLI11-2.3.2",
++    url = "https://github.com/CLIUtils/CLI11/archive/refs/tags/v2.3.2.zip",
++)
++
++http_archive(
++    name = "nlohmann_json",
++    build_file = "//third_party:BUILD.json",
++    sha256 = "e5c7a9f49a16814be27e4ed0ee900ecd0092bfb7dbfca65b5a421b774dccaaed",
++    url = "https://github.com/nlohmann/json/releases/download/v3.11.2/include.zip",
++)

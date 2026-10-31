@@ -1,3 +1,5 @@
-TIMESTAMP = 1788254653
+TIMESTAMP = 1793485671
+SHA256 (ocijail-0.6.1-bzlmod-cache-20261031.tar.gz) = dbcdec67e9fe2a1325ab0c11200c0f35e42d6e4472d9010ae1de5ad7314a3923
+SIZE (ocijail-0.6.1-bzlmod-cache-20261031.tar.gz) = 32123553
 SHA256 (dfr-ocijail-v0.6.1_GH0.tar.gz) = 1c0d1a755f343179de440977759f5aab1200cf84554a698ca6faac03af27fa99
 SIZE (dfr-ocijail-v0.6.1_GH0.tar.gz) = 48109720

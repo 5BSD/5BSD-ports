@@ -1,0 +1,10 @@
+--- third_party/BUILD.json.orig	2026-09-01 09:14:54 UTC
++++ third_party/BUILD.json
+@@ -1,5 +1,7 @@
+ # -*- bazel-build -*-
+ 
++load("@rules_cc//cc:defs.bzl", "cc_library")
++
+ cc_library(
+     name = "json",
+     hdrs = glob(["include/**/*.hpp"]),
