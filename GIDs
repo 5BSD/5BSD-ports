@@ -743,10 +743,10 @@ healthchecks:*:790:
 # free: 798
 # free: 799
 clickhouse:*:800:
-# free: 801
+rauthy:*:801:
 languagetool:*:802:
-# free: 803
-# free: 804
+minetest:*:803:
+_dnscrypt-proxy:*:804:
 # free: 805
 act_runner:*:806:
 bosun:*:807:
@@ -772,7 +772,7 @@ statsd:*:826:
 _tuptime:*:827:
 cirrus:*:828:
 # free: 829
-# 830: reserved for the base system _otel user (OpenTelemetry exporters)
+_otel:*:830:
 telemt:*:831:
 beehive:*:832:
 bhyvemgrd:*:833:
@@ -787,7 +787,7 @@ tcpcryptd:*:841:
 munin:*:842:
 dahdi:*:843:asterisk
 subsonic:*:844:
-rauthy:*:845:
+hast:*:845:
 sogod:*:846:
 domoticz:*:847:
 graylog:*:848:
@@ -918,9 +918,9 @@ plex:*:972:
 boinc:*:973:
 radicale:*:974:
 unifi:*:975:
-minetest:*:976:
+capability:*:976:
 tests:*:977:
-_dnscrypt-proxy:*:978:
+vmm:*:978:
 ums:*:979:
 hbase:*:980:
 uvncrep:*:981:
