@@ -748,10 +748,10 @@ healthchecks:*:790:790::0:0:Open-source cron and background task monitoring serv
 # free: 798
 # free: 799
 clickhouse:*:800:800::0:0:ClickHouse Daemon:/var/db/clickhouse:/usr/sbin/nologin
-# free: 801
+rauthy:*:801:801::0:0:Rauthy IdP Daemon:/var/db/rauthy:/usr/sbin/nologin
 languagetool:*:802:802::0:0:LanguageTool HTTP server:/nonexistent:/usr/sbin/nologin
-# free: 803
-# free: 804
+minetest:*:803:803::0:0:& server:/nonexistent:/usr/sbin/nologin
+_dnscrypt-proxy:*:804:804::0:0:dnscrypt-proxy user:/var/empty:/usr/sbin/nologin
 # free: 805
 act_runner:*:806:806::0:0:Act Runner User:/var/db/act_runner:/usr/sbin/nologin
 bosun:*:807:807::0:0:Bosun Daemon:/nonexistent:/usr/sbin/nologin
@@ -777,7 +777,7 @@ statsd:*:826:826::0:0:Statsd Daemon:/nonexistent:/sbin/nologin
 _tuptime:*:827:827::0:0:Tuptime:/var/lib/tuptime:/usr/sbin/nologin
 cirrus:*:828:828::0:0:Cirrus CI:/usr/local/cirrus:/bin/sh
 # free: 829
-# free: 830
+_otel:*:830:830::0:0:OpenTelemetry Exporters:/var/empty:/usr/sbin/nologin
 telemt:*:831:831::0:0:Telemt daemon:/var/db/telemt:/usr/sbin/nologin
 beehive:*:832:832::0:0:beehive user:/nonexistent:/usr/sbin/nologin
 bhyvemgrd:*:833:833::0:0:bhyvemgrd daemon user:/nonexistent:/usr/sbin/nologin
@@ -792,7 +792,7 @@ tcpcryptd:*:841:841::0:0:tcpcrypt daemon:/nonexistent:/usr/sbin/nologin
 munin:*:842:842::0:0:Munin:/var/munin:/usr/sbin/nologin
 # free: 843
 subsonic:*:844:844::0:0:Subsonic standalone-server:/nonexistent:/usr/sbin/nologin
-rauthy:*:845:845::0:0:Rauthy IdP Daemon:/var/db/rauthy:/usr/sbin/nologin
+hast:*:845:845::0:0:HAST unprivileged user:/var/empty:/usr/sbin/nologin
 sogod:*:846:846::0:0:SOGo groupware:/nonexistent:/usr/sbin/nologin
 domoticz:*:847:847::0:0:domoticz user:/nonexistent:/usr/sbin/nologin
 graylog:*:848:848::0:0:Graylog user:/nonexistent:/usr/sbin/nologin
@@ -923,9 +923,9 @@ plex:*:972:972::0:0:Plex Media Server:/nonexistent:/usr/sbin/nologin
 boinc:*:973:973::0:0:BOINC user:/var/db/boinc:/bin/sh
 radicale:*:974:974::0:0:Radicale daemon:/nonexistent:/usr/sbin/nologin
 unifi:*:975:975::0:0:Unifi Wireless Controller:/nonexistent:/usr/sbin/nologin
-minetest:*:976:976::0:0:& server:/nonexistent:/usr/sbin/nologin
+capability:*:976:976::0:0:Capability service sandbox:/nonexistent:/usr/sbin/nologin
 tests:*:977:977::0:0:Unprivileged user for tests:/nonexistent:/usr/sbin/nologin
-_dnscrypt-proxy:*:978:978::0:0:dnscrypt-proxy user:/var/empty:/usr/sbin/nologin
+# 978: reserved (base system group vmm)
 ums:*:979:979::0:0:Universal Media Server:/nonexistent:/usr/sbin/nologin
 hbase:*:980:980::0:0:HBase user:/nonexistent:/usr/sbin/nologin
 uvncrep:*:981:981::0:0:UltraVNC Repeater daemon:/nonexistent:/usr/sbin/nologin
