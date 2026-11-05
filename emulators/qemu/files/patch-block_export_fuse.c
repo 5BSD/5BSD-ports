@@ -1,6 +1,6 @@
---- block/export/fuse.c.orig	2026-04-21 19:36:25 UTC
+--- block/export/fuse.c.orig	2026-10-28 19:57:39 UTC
 +++ block/export/fuse.c
-@@ -1181,12 +1181,6 @@ fuse_co_fallocate(FuseExport *exp,
+@@ -1230,12 +1230,6 @@ fuse_co_fallocate(FuseExport *exp,
          return blk_len;
      }
  
@@ -13,7 +13,7 @@
      if (!mode) {
          /* We can only fallocate at the EOF with a truncate */
          if (offset < blk_len) {
-@@ -1204,52 +1198,6 @@ fuse_co_fallocate(FuseExport *exp,
+@@ -1253,52 +1247,6 @@ fuse_co_fallocate(FuseExport *exp,
          ret = fuse_co_do_truncate(exp, offset + length, true,
                                    PREALLOC_MODE_FALLOC);
      }
