@@ -40,17 +40,39 @@ toolkit smoke tooling and this documentation are also local maintenance.
 Package versions here are an audit snapshot; port Makefiles remain
 authoritative.
 
+5BSD stays downstream of FreeBSD ports: take FreeBSD's port unless a 5BSD
+change is needed, and carry only that change. List the current delta with:
+
+  git fetch freebsd
+  git diff --name-only freebsd/main HEAD | awk -F/ 'NF>2{print $1"/"$2}' | sort -u
+
 lang/dart is FreeBSD's origin since this sync; 5BSD carries one patch and a
 do-test target (see Native toolkit). Its upstream maintainer stands.
 
-The 5bsd-flutter source snapshot and native bootstrap are referenced through
-the 5BSD-ports release area, not an identified separate public Dart/Flutter
-fork. Record source revision, downstream patch provenance and bootstrap
-provenance with releases. toolkit-20261004 returned 404 on 2026-10-08 and
-again on 2026-11-05, and no copy of 5bsd-flutter-eb529d2bebb5.tar.xz or
-dart-bootstrap-3.13.5-5bsd-amd64.tar.xz was found on the build host on
-2026-11-05. Until the archives are recovered or the snapshot is regenerated,
+Flutter sources and bootstrap, as known on 2026-11-05:
+
+  Archives    5bsd-flutter-eb529d2bebb5.tar.xz (507240640 bytes, SHA256 in
+              x11-toolkits/flutter-engine/distinfo) and
+              dart-bootstrap-3.13.5-5bsd-amd64.tar.xz (162947532 bytes). Not
+              published: toolkit-20261004 returned 404 on 2026-10-08 and
+              2026-11-05, and no git remote for the tree was found.
+  Revisions   engine eb529d2bebb5, Dart 04bcd1036cdc (the 3.13.5 tag), Skia
+              8df24be66531, devtools 12d595649f18. The 5bsd-flutter tree also
+              had commits 760db656 (exporter, tests) and 14999c5e (offline
+              package builds).
+  Last seen   ~/5bsd-flutter, ~/5bsd-flutter-repro and ~/5bsd-flutter-work,
+              which held ports-release-inputs/ and
+              native-dart-bootstrap-3.13.5-stage2, on 2026-10-17. Not on this
+              host by 2026-11-03. Their removal is not recorded. The owner
+              expects a copy to exist; locate it before regenerating anything.
+  Still here  Built runtime only, no source:
+              /Capabilities/System/org.5bsd.Instruments@*.cap/Units/gui.unit/
+              bin/lib/libflutter_5bsd_gtk.so and libapp.so.
+
+Until the archives are recovered or the snapshot is regenerated,
 flutter-engine, 5bsd-instruments and 5bsd-imager cannot be fetched or built.
+Instruments' build source and the engine patches live in that tree. Publish
+the exact checksummed archives once found, so this is not a single copy again.
 Existing validation notes below describe prior work, not tests rerun during
 this inventory audit. No additional Imager validation is claimed here.
 
@@ -60,11 +82,15 @@ change carried forward: podman 5.8.9, miniupnpd 2.3.11, sshguard 2.6.0,
 sslproxy 0.10.0, suricata 8.0.8, wazuh 4.14.9, misc/ggml 0.27.0 with
 llama-cpp 11669, and drm-612-kmod 6.12.110. ports-mgmt/pkg is 2.9.0; upstream's
 schema is still 42, so the 5BSD migration to 1.0 stands, and the duplicate
-dependency-query argument fix was dropped because upstream carries it.
+dependency-query argument fix was dropped because upstream carries it. 5BSD's
+pkg_delete_file() error patch was extended for 2.9.0's path check.
 lang/python312 keeps its POP3/IMAP backports alongside upstream's unrelated
 divert fix, as 3.12.15_2. The fetch and patch steps were run for every
-5BSD-touched origin that could be fetched; the merge has not been built or
-runtime-tested as a whole. See the commit message for per-port status.
+5BSD-touched origin that could be fetched. pkg 2.9.0 was built and exercised
+on a disposable root: install to schema 1.0, a failing delete, and the retry.
+devel/bazel9 9.3.1_1 was built, staged and run from main before this merge.
+The merge has not otherwise been built or runtime-tested as a whole. See the
+commit messages for per-port status.
 
 QEMU and ocijail (2026-10-31): emulators/qemu is 11.1.3. It keeps the
 5BSD TCG x86 page-straddle fix (patch-target_i386_tcg_access.c; 11.1.3
@@ -218,6 +244,18 @@ The FreeBSD port builds Dart as a Linux variant: Platform.operatingSystem is
 "5bsd". The flutter-engine runtime still reports "5bsd". files/smoke.dart
 records this. The 5BSD delta is patch-pkg_vm_lib_target__os.dart, which adds
 --target-os=5bsd for 5bsd-imager and 5bsd-instruments, plus the do-test target.
+
+Bootstrap: Dart is written in Dart, so every build needs a prebuilt SDK, as
+lang/go and lang/rust do. Google publishes none for FreeBSD, so the port
+fetches a build from that project. It runs during the build and is not
+installed. The chain began with a Linux build and each later one was built by
+its predecessor; DISTFILES and distinfo pin it, which proves the file is the
+expected one, not how it was produced. 5BSD had its own Linux-seeded chain
+(dart-bootstrap-3.13.5-5bsd-amd64, native-dart-bootstrap-3.13.5-stage2), not
+located. To stop depending on the third-party file, recover that bootstrap
+or rebuild the SDK with itself and publish the result. A new Dart minor
+release needs a new bootstrap, not the previous release (docs/bootstrap.md
+in that project).
 
 Validation: source inspection and fetch, checksum and patch steps only. This
 SDK has not been built to completion on 5BSD; a 2026-11-03 attempt from the
