@@ -9,6 +9,18 @@
  pkg_delete_file(struct pkg *pkg, struct pkg_file *file)
  {
  	const char *path;
+@@ -331,7 +331,9 @@
+ 		len--;
+ 
+-	if (pkg_resolve_beneath(pkg->rootfd, path, rpath, sizeof(rpath)) != EPKG_OK)
+-		return;
++	if (pkg_resolve_beneath(pkg->rootfd, path, rpath, sizeof(rpath)) != EPKG_OK) {
++		pkg_emit_error("cannot resolve file path: %s", path);
++		return (EPKG_FATAL);
++	}
+ 	path = rpath;
+ 
+ #ifdef HAVE_STRUCT_STAT_ST_FLAGS
 @@ -340,16 +340,18 @@
  #endif
  	pkg_debug(1, "Deleting file: '%s'", path);
