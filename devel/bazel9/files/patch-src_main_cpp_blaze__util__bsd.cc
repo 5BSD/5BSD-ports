@@ -5,7 +5,7 @@
  #if defined(__FreeBSD__)
  # define HAVE_PROCSTAT
 -# define STANDARD_JAVABASE "/usr/local/openjdk8"
-+# define STANDARD_JAVABASE "%%JAVA_HOME%%"
++# define STANDARD_JAVABASE "%%BAZEL_RUNTIME_JAVA_HOME%%"
  #elif defined(__OpenBSD__)
  # define STANDARD_JAVABASE "/usr/local/jdk-17"
  #else

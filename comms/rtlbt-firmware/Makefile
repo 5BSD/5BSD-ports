@@ -1,6 +1,6 @@
 PORTNAME=	rtlbt-firmware
 DISTVERSION=	20251111
-PORTREVISION=	1
+PORTREVISION=	2
 DEB_REVISION=	1
 CATEGORIES=	comms
 MASTER_SITES=	DEBIAN/pool/non-free-firmware/f/firmware-nonfree/
@@ -17,6 +17,9 @@ LICENSE_FILE=	${WRKDIR}/usr/share/doc/firmware-realtek/copyright
 LICENSE_PERMS=	dist-mirror dist-sell pkg-mirror pkg-sell auto-accept
 
 NO_BUILD=	yes
+
+# Match the base Bluetooth loader; firmware belongs to the system image.
+DATADIR?=	/usr/share/firmware/rtlbt
 PLIST_DIRS+=	${DATADIR}
 NO_ARCH=	yes
 

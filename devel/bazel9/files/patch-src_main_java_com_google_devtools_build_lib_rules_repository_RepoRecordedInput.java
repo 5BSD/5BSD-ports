@@ -1,6 +1,6 @@
---- a/src/main/java/com/google/devtools/build/lib/rules/repository/RepoRecordedInput.java
-+++ b/src/main/java/com/google/devtools/build/lib/rules/repository/RepoRecordedInput.java
-@@ -581,9 +581,9 @@
+--- src/main/java/com/google/devtools/build/lib/rules/repository/RepoRecordedInput.java.orig
++++ src/main/java/com/google/devtools/build/lib/rules/repository/RepoRecordedInput.java
+@@ -579,7 +579,7 @@
        var fp = new Fingerprint();
        fp.addStrings(
            directoryListingValue.getDirents().stream()

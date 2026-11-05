@@ -1,5 +1,6 @@
 PORTNAME=	bazel
 DISTVERSION=	9.3.1
+PORTREVISION=	1
 CATEGORIES=	devel java
 MASTER_SITES=	https://github.com/bazelbuild/${PORTNAME}/releases/download/${DISTVERSION}/
 PKGNAMESUFFIX=	9
@@ -36,6 +37,10 @@ GOROOT=		${LOCALBASE}/go${GO_SUFFIX}
 
 .include <bsd.port.pre.mk>
 
+# JAVA_HOME is the runtime dependency path; the staged build JDK can differ.
+BAZEL_RUNTIME_JAVA_HOME?=	${JAVA_HOME}
+BAZEL_BUILD_JAVA_HOME?=	${JAVA_HOME}
+
 .if ${ARCH} == "aarch64"
 BAZEL_JAVAC_OPTS+=	-J-Xmx1g -J-Xms128m
 .endif
@@ -55,7 +60,7 @@ post-patch:
 		${WRKSRC}/tools/python/pywrapper_template.txt
 	@${REINPLACE_CMD} -e 's|%%PREFIX%%|${PREFIX}|' \
 		${WRKSRC}/tools/python/python_bootstrap_template.txt
-	@${REINPLACE_CMD} -e 's|%%JAVA_HOME%%|${JAVA_HOME}|' \
+	@${REINPLACE_CMD} -e 's|%%BAZEL_RUNTIME_JAVA_HOME%%|${BAZEL_RUNTIME_JAVA_HOME}|' \
 		${WRKSRC}/src/main/cpp/blaze_util_bsd.cc
 	@${MKDIR} ${WRKSRC}/toolchain_local
 	@${CP} ${FILESDIR}/toolchain_local-BUILD ${WRKSRC}/toolchain_local/BUILD
@@ -75,7 +80,7 @@ do-build:
 	fi ; \
 	cd ${WRKSRC} && \
 	${SETENV} BAZEL_SH=${LOCALBASE}/bin/bash \
-	JAVA_HOME=${JAVA_HOME} \
+	JAVA_HOME=${BAZEL_BUILD_JAVA_HOME} \
 	JAVA_VERSION=${JAVA_PORT_VERSION} \
 	TMPDIR=${WRKDIR}/bazel_tmp \
 	EMBED_LABEL='${PORTVERSION}' \
