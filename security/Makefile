@@ -396,6 +396,7 @@
     SUBDIR += mhash
     SUBDIR += mindterm-binary
     SUBDIR += minisign
+    SUBDIR += mkcacerts
     SUBDIR += mkcert
     SUBDIR += mkp224o
     SUBDIR += modsecurity3
@@ -450,6 +451,9 @@
     SUBDIR += openfhe
     SUBDIR += openfortivpn
     SUBDIR += openiked
+    SUBDIR += openpgp-card-ssh-agent
+    SUBDIR += openpgp-card-tools
+    SUBDIR += openpgp-card-tools-git
     SUBDIR += opensaml
     SUBDIR += opensc
     SUBDIR += openssh-askpass
@@ -874,6 +878,9 @@
     SUBDIR += plasma6-kscreenlocker
     SUBDIR += plasma6-ksshaskpass
     SUBDIR += plasma6-kwallet-pam
+    SUBDIR += plasma6lts-kscreenlocker
+    SUBDIR += plasma6lts-ksshaskpass
+    SUBDIR += plasma6lts-kwallet-pam
     SUBDIR += portacl-rc
     SUBDIR += proftpd-mod_clamav
     SUBDIR += proxytunnel
@@ -1061,6 +1068,7 @@
     SUBDIR += py-pyotp2289
     SUBDIR += py-pysaml2
     SUBDIR += py-pyscard
+    SUBDIR += py-pysequoia
     SUBDIR += py-pysodium
     SUBDIR += py-pyspnego
     SUBDIR += py-pysrp
@@ -1402,6 +1410,7 @@
     SUBDIR += susshi
     SUBDIR += swatchdog
     SUBDIR += syft
+    SUBDIR += tailcat
     SUBDIR += tailscale
     SUBDIR += tang
     SUBDIR += tclsasl

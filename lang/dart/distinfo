@@ -1,7 +1,7 @@
-TIMESTAMP = 1791146446
-SHA256 (5bsd-toolkit/5bsd-flutter-eb529d2bebb5.tar.xz) = 1a4310d541709e78a2a885339cbf621ddd3ed30eb3097f0a9955cd4ad2dd3ea5
-SIZE (5bsd-toolkit/5bsd-flutter-eb529d2bebb5.tar.xz) = 507240640
-SHA256 (5bsd-toolkit/dart-bootstrap-3.13.5-5bsd-amd64.tar.xz) = 234163dec89badc3d94ff657c1fc2dbba1ac8ae375551a6a957f8ef078d18c1b
-SIZE (5bsd-toolkit/dart-bootstrap-3.13.5-5bsd-amd64.tar.xz) = 162947532
-SHA256 (5bsd-toolkit/flutter-devtools-12d595649f189f1896722623f72599077f476848_GH0.tar.gz) = 0e48f113e391da2724592e163ff79f9dbdac4b513728e764ef0728008488aed3
-SIZE (5bsd-toolkit/flutter-devtools-12d595649f189f1896722623f72599077f476848_GH0.tar.gz) = 84070153
+TIMESTAMP = 1791667233
+SHA256 (dart/dart-sdk-3.13.5-src.tar.xz) = 2fd47168ad333c327204791fb600a972f37f079c1f5208e456befe13a4b39c54
+SIZE (dart/dart-sdk-3.13.5-src.tar.xz) = 195418800
+SHA256 (dart/dart-sdk-3.13.5-bootstrap-freebsd15-aarch64.tar.xz) = ff8c8e01dc7d5eff6022956853e5258643876f593dee64e4f3284c378b87f44e
+SIZE (dart/dart-sdk-3.13.5-bootstrap-freebsd15-aarch64.tar.xz) = 76850900
+SHA256 (dart/dart-sdk-3.13.5-bootstrap-freebsd15-amd64.tar.xz) = 433c6e3e36c1d6d6beb489be53cb9720f6b0dc759f4d44716c6aba5fc5500ace
+SIZE (dart/dart-sdk-3.13.5-bootstrap-freebsd15-amd64.tar.xz) = 116318148

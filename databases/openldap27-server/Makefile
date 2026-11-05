@@ -1,5 +1,5 @@
 PORTNAME=	openldap
-DISTVERSION=	2.7.1
+DISTVERSION=	2.7.2
 PORTREVISION=	${OPENLDAP_PORTREVISION}
 CATEGORIES=	databases net
 MASTER_SITES=	https://www.openldap.org/software/download/OpenLDAP/%SUBDIR%/ \
@@ -79,9 +79,6 @@ OPTIONS_GROUP_OVLYS+=	ACCESSLOG ADDPARTIAL ALLOP AUDITLOG AUTOCA AUTOGROUP \
 OPTIONS_DEFINE+=	ACI ARGON2 DYNACL LLOADD NETWORKING OUTLOOK PBKDF2 \
 			RLOOKUPS SLAPI SLP
 
-OPTIONS_EXCLUDE_FreeBSD_15=	SMBPWD # Only works with Heimdal
-OPTIONS_EXCLUDE_FreeBSD_16=	SMBPWD # Only works with Heimdal
-
 OPTIONS_DEFAULT+=	${BKNDS_DEFAULTS} ${OPTIONS_GROUP_OVLYS} ARGON2 LLOADD
 
 OPTIONS_SUB=	yes
@@ -97,7 +94,7 @@ AUTOCA_DESC=		With Automatic Certificate Authority overlay
 AUTOGROUP_DESC=		With autogroup overlay (experimental)
 BKNDS_DESC=		OpenLDAP backends
 CLOAK_DESC=		With cloak overlay (experimental)
-COLLECT_DESC=		With Collect overy Services overlay
+COLLECT_DESC=		With Collective Attributes overlay
 CONSTRAINT_DESC=	With Attribute Constraint overlay
 DDS_DESC=		With Dynamic Directory Services overlay
 DENYOP_DESC=		With denyop overlay (experimental)
@@ -367,6 +364,14 @@ post-patch:
 	@${REINPLACE_CMD} -E \
 		-e '/ldap_dump_(connection|requests_and_responses);/d' \
 		${WRKSRC}/libraries/libldap/ldap.map.in
+.endif
+
+post-patch-SMBPWD-on:
+.if ${OPSYS} == FreeBSD && ${OSVERSION} >= 1500000
+	@${REINPLACE_CMD} -e 's|-DDO_KRB5 ||' \
+		-e 's|^HEIMDAL_INC =.*|HEIMDAL_INC =|' \
+		-e 's|^HEIMDAL_LIB =.*|HEIMDAL_LIB =|' \
+		${WRKSRC}/contrib/slapd-modules/smbk5pwd/Makefile
 .endif
 
 post-patch-NSSOV-on:

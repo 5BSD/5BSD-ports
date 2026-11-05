@@ -1,7 +1,7 @@
---- electron/spec/spellchecker.spec.ts.orig	2026-09-29 23:27:57 UTC
+--- electron/spec/spellchecker.spec.ts.orig	2026-10-26 22:10:04 UTC
 +++ electron/spec/spellchecker.spec.ts
-@@ -91,7 +91,7 @@ ifdescribe(features.isBuiltinSpellCheckerEnabled())('s
-       });
+@@ -126,7 +126,7 @@ ifdescribe(features.isBuiltinSpellCheckerEnabled())('s
+       }, timeout);
  
        // Context menu test can not run on Windows or Linux (https://github.com/electron/electron/pull/48657 broke linux).
 -      const shouldRun = process.platform !== 'win32' && process.platform !== 'linux';

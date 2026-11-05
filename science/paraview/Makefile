@@ -1,6 +1,6 @@
 PORTNAME=	paraview
-DISTVERSION=	${PARAVIEW_VER}.1
-PORTREVISION=	2
+DISTVERSION=	${PARAVIEW_VER}.0
+PORTREVISION=	4
 CATEGORIES=	science graphics
 MASTER_SITES=	http://www.paraview.org/files/v${PARAVIEW_VER}/
 DISTNAME=	ParaView-v${PORTVERSION}
@@ -71,7 +71,7 @@ USES=		cmake compiler:c++17-lang desktop-file-utils eigen:3 fortran gl gnome	\
 		jpeg localbase pkgconfig python qt:6 shebangfix sqlite tar:xz xorg
 USE_GL=		glew opengl
 USE_GNOME=	libxml2
-USE_QT=		5compat base svg tools webengine
+USE_QT=		5compat base svg tools
 #buildtools:build core gui help network opengl qmake:build sql svg	\
 #		webengine widgets x11extras glew xmlpatterns
 USE_XORG=	ice sm x11 xau xcb xcursor xdamage xdmcp xext xfixes xorgproto xrender	\
@@ -108,6 +108,7 @@ CMAKE_ARGS+=	-DCMAKE_CXX_STANDARD=17 \
 		-DVTK_USE_X:BOOL=ON \
 		-DExternalData_OBJECT_STORES="${WRKDIR}/VTK/ExternalData/MD5" \
 		-DFREETYPE_INCLUDE_DIRS="${LOCALBASE}/include/freetype2"
+CMAKE_ARGS+=	-DCMAKE_POLICY_VERSION_MINIMUM:STRING=3.5	# CMake 4.5 compatibility
 CONFIGURE_ENV=	ANARI_LIBRARY=helide
 # TODO: port Viskores - https://viskores.org/
 CMAKE_ARGS+=	-DPARAVIEW_USE_VISKORES:BOOL=OFF

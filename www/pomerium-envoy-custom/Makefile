@@ -1,7 +1,6 @@
 PORTNAME=	pomerium-envoy-custom
 DISTVERSIONPREFIX=
-DISTVERSION=	1.37.0.20260618
-PORTREVISION=	3
+DISTVERSION=	1.37.0.20261026
 CATEGORIES=	www
 MASTER_SITES+=	https://github.com/envoyproxy/envoy/archive/:envoy_src \
 		https://github.com/openssh/openssh-portable/archive/:openssh_portable \
@@ -15,7 +14,7 @@ MASTER_SITES+=	https://github.com/envoyproxy/envoy/archive/:envoy_src \
 		https://github.com/bazelbuild/rules_proto/archive/refs/tags/:envoy_api_rules_proto \
 		https://github.com/bufbuild/buf/releases/download/v1.61.0/:envoy_api_buf \
 		https://github.com/google/cel-spec/archive/:envoy_api_dev_cel \
-		https://github.com/envoyproxy/toolshed/releases/download/bazel-v0.3.35/:envoy_api_toolshed
+		https://github.com/envoyproxy/toolshed/releases/download/bazel-v0.4.13.post0/:envoy_api_toolshed
 DISTFILES+=	${ENVOY_SRC_COMMIT}.zip:envoy_src \
 		V_10_3_P1.tar.gz:openssh_portable \
 		v0.9.8.tar.gz:magic_enum \
@@ -28,7 +27,7 @@ DISTFILES+=	${ENVOY_SRC_COMMIT}.zip:envoy_src \
 		7.1.0.tar.gz:envoy_api_rules_proto \
 		buf-Linux-x86_64.tar.gz:envoy_api_buf \
 		v0.25.1.tar.gz:envoy_api_dev_cel \
-		toolshed-bazel-v0.3.35.tar.gz:envoy_api_toolshed
+		toolshed-bazel-v0.4.13.post0.tar.gz:envoy_api_toolshed
 DIST_SUBDIR=	${PORTNAME}
 
 MAINTAINER=	delphij@FreeBSD.org
@@ -56,8 +55,6 @@ BUILD_DEPENDS=	${LOCALBASE}/bin/autoconf:devel/autoconf \
 		zip:archivers/zip
 LIB_DEPENDS=	libbrotlidec.so:archivers/brotli \
 		libcares.so:dns/c-ares \
-		libmaxminddb.so:net/libmaxminddb \
-		libnghttp2.so:www/libnghttp2 \
 		libre2.so:devel/re2 \
 		libxxhash.so:devel/xxhash \
 		libyaml-cpp.so:devel/yaml-cpp \
@@ -67,12 +64,12 @@ USES=		cmake:indirect compiler:c++20-lang gmake go:no_targets \
 		java:build ninja:build python:build
 USE_GITHUB=	yes
 
-ENVOY_SRC_COMMIT=	f387231af8dd7274e37c5ae2cc797cb09a948818
+ENVOY_SRC_COMMIT=	d098c69f64497010931e92fb6f580ee67638fa51
 ZLIBBASE=		${LOCALBASE:H}
 
 GH_ACCOUNT=	pomerium
 GH_PROJECT=	envoy-custom
-GH_TAGNAME=	16ede7a56f2f2c4de7011337193495e32d57ce3b
+GH_TAGNAME=	30d955cf07bd68f148c4f4fcaa4a82b1ff2709de
 
 # Bazel-managed dependencies (GitHub archive format).
 # These are fetched by Bazel as http_archive during the build, sourced from
@@ -112,7 +109,7 @@ GH_TUPLE+=	grailbio:bazel-compilation-database:40864791135333e1446a04553b63cbe74
 		confluentinc:librdkafka:v2.6.0:confluentinc_librdkafka \
 		cython:cython:0.29.35:cython \
 		envoyproxy:examples:v0.2.3:envoy_examples \
-		envoyproxy:toolshed:bazel-v0.3.35:envoy_toolshed \
+		envoyproxy:toolshed:bazel-v0.4.13.post0:envoy_toolshed \
 		fastfloat:fast_float:v7.0.0:fast_float \
 		ninja-build:ninja:v1.13.1:fips_ninja \
 		google:gurl:dd4080fec0b443296c0ed0036e1e776df8813aa7:googleurl \
@@ -131,14 +128,14 @@ GH_TUPLE+=	grailbio:bazel-compilation-database:40864791135333e1446a04553b63cbe74
 		bazelbuild:rules_python:1.9.0:rules_python \
 		protocolbuffers:rules_ruby:37cf5900d0b0e44fa379c0ea3f5fcee0035d77ca:rules_ruby \
 		apache:skywalking-data-collect-protocol:v10.4.0:skywalking_data_collect_protocol \
-		apache:thrift:v0.23.0:thrift \
+		apache:thrift:v0.24.0:thrift \
 		census-instrumentation:opencensus-cpp:5501a1a255805e0be83a41348bb5f2630d5ed6b3:io_opencensus_cpp \
 		census-instrumentation:opencensus-proto:v0.3.0:opencensus_proto \
 		Linaro:uadk:v2.9:uadk \
 		protocolbuffers:utf8_range:de0b4a8ff9b5d4c98108bdfe723291a33c52c54f:utf8_range \
 		v8:v8:14.6.202.10:v8 \
 		bytecodealliance:wasm-micro-runtime:WAMR-2.4.4:com_github_wamr \
-		bytecodealliance:wasmtime:v24.0.7:com_github_wasmtime \
+		bytecodealliance:wasmtime:v24.0.10:com_github_wasmtime \
 		intel:ittapi:a3911fff01a775023a06af8754f9ec1e5977dd97:intel_ittapi
 
 JAVA_VERSION=	21+
@@ -381,8 +378,6 @@ BAZEL_BUILD_OPTS=	--distdir=${WRKDIR}/bazel-distdir \
 			--override_repository=net_zlib=${WRKDIR}/sys_repos/zlib \
 			--override_repository=zlib_ng=${WRKDIR}/sys_repos/zlib \
 			--override_repository=zlib-ng=${WRKDIR}/sys_repos/zlib \
-			--override_repository=com_github_maxmind_libmaxminddb=${WRKDIR}/sys_repos/libmaxminddb \
-			--override_repository=libmaxminddb=${WRKDIR}/sys_repos/libmaxminddb \
 			--override_repository=build_bazel_rules_apple=${WRKDIR}/sys_repos/apple_stub \
 			--override_repository=base_pip3=${WRKDIR}/sys_repos/base_pip3 \
 			--override_repository=io_hyperscan=${WRKDIR}/sys_repos/hyperscan \
@@ -466,9 +461,7 @@ post-patch:
 # source) and is referenced by the @envoy http_archive patches list in WORKSPACE.
 	${CP} ${FILESDIR}/envoy_freebsd-dependency-imports.patch \
 		${WRKSRC}/patches/envoy/freebsd-dependency-imports.patch
-	for f in foreign-cc-maxmind \
-	    maxmind-extension \
-	    luajit \
+	for f in luajit \
 	    platform \
 	    terminate-thread \
 	    thread-impl \
@@ -483,12 +476,14 @@ post-patch:
 	done
 # FreeBSD: copy per-dependency FreeBSD patches to WRKSRC/bazel/ so Bazel can
 # reference them as @pomerium_envoy//bazel:<name> from the http_archive patches
-# lists injected by freebsd-repositories.patch (v8, msgpack, dd_trace,
-# rules_foreign_cc) and the WORKSPACE luajit definition.
+# lists injected by freebsd-repositories.patch (v8, msgpack, gperftools,
+# dd_trace, rules_foreign_cc) and the WORKSPACE luajit definition.
 	${CP} ${FILESDIR}/v8_freebsd.patch \
 		${WRKSRC}/bazel/v8_freebsd.patch
 	${CP} ${FILESDIR}/msgpack_freebsd.patch \
 		${WRKSRC}/bazel/msgpack_freebsd.patch
+	${CP} ${FILESDIR}/gperftools_freebsd.patch \
+		${WRKSRC}/bazel/gperftools_freebsd.patch
 	${CP} ${FILESDIR}/dd_trace_freebsd.patch \
 		${WRKSRC}/bazel/dd_trace_freebsd.patch
 	${CP} ${FILESDIR}/luajit_freebsd.patch \
@@ -538,8 +533,6 @@ pre-build:
 	    fix-transport-socket-options.patch \
 	    freebsd-dependency-imports.patch \
 	    freebsd-repositories.patch \
-	    freebsd-foreign-cc-maxmind.patch \
-	    freebsd-maxmind-extension.patch \
 	    freebsd-luajit.patch \
 	    freebsd-platform.patch \
 	    freebsd-terminate-thread.patch \
@@ -693,24 +686,6 @@ pre-build:
 	${LN} -sf ${ZLIBBASE}/include/zlib.h ${WRKDIR}/sys_repos/zlib/zlib/include/zlib.h
 	${LN} -sf ${ZLIBBASE}/include/zconf.h ${WRKDIR}/sys_repos/zlib/zlib/include/zconf.h
 	${LN} -sf ${ZLIBBASE}/lib/libz.so ${WRKDIR}/sys_repos/zlib/libz.so
-# nghttp2: shared lib, www/nghttp2
-	@${MKDIR} ${WRKDIR}/sys_repos/nghttp2/include/nghttp2
-	@echo "" > ${WRKDIR}/sys_repos/nghttp2/WORKSPACE
-	${CP} ${FILESDIR}/sys_repos_nghttp2.BUILD.bazel ${WRKDIR}/sys_repos/nghttp2/BUILD.bazel
-	${LN} -sf ${LOCALBASE}/include/nghttp2/nghttp2.h \
-		${WRKDIR}/sys_repos/nghttp2/include/nghttp2/nghttp2.h
-	${LN} -sf ${LOCALBASE}/include/nghttp2/nghttp2ver.h \
-		${WRKDIR}/sys_repos/nghttp2/include/nghttp2/nghttp2ver.h
-	${LN} -sf ${LOCALBASE}/lib/libnghttp2.so ${WRKDIR}/sys_repos/nghttp2/libnghttp2.so
-# libmaxminddb: shared lib, net/libmaxminddb
-	@${MKDIR} ${WRKDIR}/sys_repos/libmaxminddb/include
-	@echo "" > ${WRKDIR}/sys_repos/libmaxminddb/WORKSPACE
-	${CP} ${FILESDIR}/sys_repos_libmaxminddb.BUILD.bazel ${WRKDIR}/sys_repos/libmaxminddb/BUILD.bazel
-	${LN} -sf ${LOCALBASE}/include/maxminddb.h \
-		${WRKDIR}/sys_repos/libmaxminddb/include/maxminddb.h
-	${LN} -sf ${LOCALBASE}/include/maxminddb_config.h \
-		${WRKDIR}/sys_repos/libmaxminddb/include/maxminddb_config.h
-	${LN} -sf ${LOCALBASE}/lib/libmaxminddb.so ${WRKDIR}/sys_repos/libmaxminddb/libmaxminddb.so
 # hyperscan: override always so Bazel never fetches the source archive.
 # On amd64: real system library from devel/hyperscan (exact version match 5.4.2).
 # On other arches: empty stub (hyperscan targets are linux/freebsd_x86_64-only).
@@ -974,11 +949,11 @@ pre-build:
 	${CP} ${FILESDIR}/sys_repos_prometheus_metrics_model.BUILD.bazel \
 		${WRKDIR}/sys_repos/prometheus_metrics_model/BUILD.bazel
 # envoy_toolshed: extract the real toolshed from the GH_TUPLE archive.
-# The archive has toolshed-bazel-v0.3.35/{bazel/,...}; the Bazel repo root
+# The archive has toolshed-bazel-v0.4.13.post0/{bazel/,...}; the Bazel repo root
 # is the bazel/ subdirectory (contains WORKSPACE, BUILD, versions.bzl, etc.).
 # --override_repository points to ${WRKDIR}/sys_repos/envoy_toolshed/bazel.
 	@${MKDIR} ${WRKDIR}/sys_repos/envoy_toolshed
-	@${TAR} -xzf ${DISTDIR}/${DIST_SUBDIR}/envoyproxy-toolshed-bazel-v0.3.35_GH0.tar.gz \
+	@${TAR} -xzf ${DISTDIR}/${DIST_SUBDIR}/envoyproxy-toolshed-bazel-v0.4.13.post0_GH0.tar.gz \
 		--strip-components=1 \
 		-C ${WRKDIR}/sys_repos/envoy_toolshed
 # yq: envoy_repo uses @yq to parse CI config YAML.  aspect_bazel_lib's

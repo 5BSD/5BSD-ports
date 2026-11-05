@@ -1,24 +1,44 @@
 PORTNAME=	swift
 DISTVERSIONPREFIX=	swift-
-DISTVERSION=	6.4.0
+DISTVERSION=	6.4.1
 DISTVERSIONSUFFIX=	-RELEASE
 CATEGORIES=	lang
 PKGNAMESUFFIX=	6
 DIST_SUBDIR=	${PORTNAME}
 
-OLD_SWIFT_VERSION=		6.3.3
+OPTIONS_DEFINE=	DOCS
+
+.include <bsd.port.options.mk>
+
+# powerpc64le bootstrap toolchains exist for both long-double ABIs: freebsd14
+# (64-bit long double, also usable on 15.x via misc/compat14x) and freebsd16
+# (IEEE binary128, for the ABI flag day at OSVERSION 1600019).
+.if ${ARCH} == powerpc64le
+.   if ${OSVERSION} >= 1600019
+_BOOTSTRAP_OSSUFX=	16
+.   else
+_BOOTSTRAP_OSSUFX=	14
+.   endif
+.endif
+_BOOTSTRAP_OSSUFX?=	# empty
+
+OLD_SWIFT_VERSION=		6.4.0
 .if !defined(BOOTSTRAP_MODE)
 BOOTSTRAP_SWIFT_VERSION=	${DISTVERSION}
 .else
 BOOTSTRAP_SWIFT_VERSION=	${OLD_SWIFT_VERSION}
 .endif
+.if ${ARCH} == powerpc64le
+MASTER_SITES=	LOCAL/pkubaj/${PORTNAME}:bootstrap
+.else
 MASTER_SITES=	LOCAL/tagattie/${PORTNAME}:bootstrap
+.endif
 .if make(makesum) && defined(MAKESUM_MODE)
 .   for version in ${OLD_SWIFT_VERSION} ${DISTVERSION}
-DISTFILES+=	${PORTNAME}${PKGNAMESUFFIX}-bootstrap-${version}-${SWIFT_ARCH}-unknown-${OPSYS:tl}${EXTRACT_SUFX}:bootstrap
+DISTFILES+=	${PORTNAME}${PKGNAMESUFFIX}-bootstrap-${version}-${SWIFT_ARCH}-unknown-${OPSYS:tl}${_BOOTSTRAP_OSSUFX}${EXTRACT_SUFX}:bootstrap
 .   endfor
 .else
-DISTFILES=	${PORTNAME}${PKGNAMESUFFIX}-bootstrap-${BOOTSTRAP_SWIFT_VERSION}-${SWIFT_ARCH}-unknown-${OPSYS:tl}${EXTRACT_SUFX}:bootstrap
+DISTFILES=	${PORTNAME}${PKGNAMESUFFIX}-bootstrap-${BOOTSTRAP_SWIFT_VERSION}-${SWIFT_ARCH}-unknown-${OPSYS:tl}${_BOOTSTRAP_OSSUFX}${EXTRACT_SUFX}:bootstrap
 .endif
 
 MAINTAINER=	tagattie@FreeBSD.org
@@ -28,8 +48,8 @@ WWW=		https://www.swift.org/
 LICENSE=	APACHE20
 LICENSE_FILE=	${WRKSRC}/swift/LICENSE.txt
 
-ONLY_FOR_ARCHS=		amd64
-ONLY_FOR_ARCHS_REASON=	bootstrap is available only on amd64 architecture
+ONLY_FOR_ARCHS=		amd64 powerpc64le
+ONLY_FOR_ARCHS_REASON=	bootstrap is available only on amd64 and powerpc64le
 
 BUILD_DEPENDS=	rsync:net/rsync \
 		bash:shells/bash
@@ -55,7 +75,7 @@ GH_TUPLE=	\
 		apple:swift-atomics:1.3.1:swift_atomics/swift-atomics \
 		swiftlang:swift-build:${DISTVERSIONFULL}:swift_build/swift-build \
 		apple:swift-certificates:1.10.1:swift_certificates/swift-certificates \
-		apple:swift-collections:1.1.6:swift_collections/swift-collections \
+		apple:swift-collections:1.7.3:swift_collections/swift-collections \
 		swiftlang:swift-corelibs-blocksruntime:${DISTVERSIONFULL}:swift_corelibs_blocksruntime/swift-corelibs-blocksruntime \
 		swiftlang:swift-corelibs-foundation:${DISTVERSIONFULL}:swift_corelibs_foundation/swift-corelibs-foundation \
 		swiftlang:swift-corelibs-libdispatch:${DISTVERSIONFULL}:swift_corelibs_libdispatch/swift-corelibs-libdispatch \
@@ -79,17 +99,17 @@ GH_TUPLE=	\
 		apple:swift-numerics:1.0.2:swift_numerics/swift-numerics \
 		swiftlang:swift-sdk-generator:${DISTVERSIONFULL}:swift_sdk_generator/swift-sdk-generator \
 		swiftlang:swift-stress-tester:${DISTVERSIONFULL}:swift_stress_tester/swift-stress-tester \
-		swiftlang:swift-subprocess:0.5:swift_subprocess/swift-subprocess \
+		swiftlang:swift-subprocess:1.0.1:swift_subprocess/swift-subprocess \
 		swiftlang:swift-syntax:${DISTVERSIONFULL}:swift_syntax/swift-syntax \
-		apple:swift-system:1.5.0:swift_system/swift-system \
+		apple:swift-system:1.8.1:swift_system/swift-system \
 		swiftlang:swift-testing:${DISTVERSIONFULL}:swift_testing/swift-testing \
-		swiftlang:swift-toolchain-sarif:519c296:swift_toolchain_sarif/swift-toolchain-sarif \
-		swiftlang:swift-toolchain-sqlite:1.0.9:swift_toolchain_sqlite/swift-toolchain-sqlite \
+		swiftlang:swift-toolchain-sarif:7a26547:swift_toolchain_sarif/swift-toolchain-sarif \
+		swiftlang:swift-toolchain-sqlite:1.0.13:swift_toolchain_sqlite/swift-toolchain-sqlite \
 		swiftlang:swift-tools-protocols:${DISTVERSIONFULL}:swift_tools_protocols/swift-tools-protocols \
 		swiftlang:swift-tools-support-core:${DISTVERSIONFULL}:swift_tools_support_core/swift-tools-support-core \
 		swiftlang:swift-package-manager:${DISTVERSIONFULL}:swift_package_manager/swiftpm \
-		WebAssembly:wasi-libc:wasi-sdk-32:wasi_libc/wasi-libc \
-		swiftwasm:WasmKit:0.3.1:WasmKit/wasmkit
+		WebAssembly:wasi-libc:wasi-sdk-34:wasi_libc/wasi-libc \
+		swiftwasm:WasmKit:0.4.1:WasmKit/wasmkit
 
 USE_PERL5=	build
 USE_GNOME=	libxml2
@@ -108,9 +128,17 @@ WRKSRC=		${WRKDIR}/swift-${DISTVERSION}
 
 PLIST_SUB=	SWIFT_ARCH=${SWIFT_ARCH} \
 		SWIFT_TARGET_TRIPLE=${SWIFT_ARCH}-unknown-${OPSYS:tl}
+# Sanitizer/profiling runtimes that compiler-rt does not support on
+# FreeBSD/powerpc64le (ASan, UBSan, profile and static XRay do build there).
+.if ${ARCH} == powerpc64le
+PLIST_SUB+=	MSAN="@comment " TSAN="@comment " CFI="@comment " \
+		FUZZER="@comment " SAFESTACK="@comment " XRAYDSO="@comment " \
+		ORCRT="@comment " BUILTINSI386="@comment "
+.else
+PLIST_SUB+=	MSAN="" TSAN="" CFI="" FUZZER="" SAFESTACK="" XRAYDSO="" \
+		ORCRT="" BUILTINSI386=""
+.endif
 PORTDOCS=	CHANGELOG.md CONTRIBUTING.md README.md
-
-OPTIONS_DEFINE=	DOCS
 
 SWIFT_ARCH=	${ARCH:S/amd64/x86_64/}
 # SwiftPM expects swift toolchain executables are located in
@@ -158,7 +186,7 @@ COMMON_BUILDFLAGS=	\
 		--extra-cmake-options="-DSWIFT_USE_LINKER=lld" \
 		--verbose-build true \
 		--skip-clean-libdispatch true \
-		--llvm-targets-to-build "AArch64;X86" \
+		--llvm-targets-to-build "AArch64;PowerPC;X86" \
 		--llvm-install-components "llvm-ar;llvm-nm;llvm-ranlib;llvm-cov;llvm-profdata;llvm-objdump;llvm-objcopy;llvm-symbolizer;IndexStore;clang;clang-resource-headers;builtins;runtimes;clangd;libclang;lld;LTO;clang-features-file" \
 		--bootstrapping hosttools \
 		${CCACHE_BUILDFLAGS} \
@@ -257,14 +285,6 @@ BUILD_DEPENDS+=	${LOCALBASE}/lib/compat/libutil.so.9:misc/compat14x
 .endif
 
 post-extract:
-# FIXME: Bootstrap toolchain (6.3.3) has been prepared to use wrong paths.
-# So adjust the toolchain paths to meet Swift's expectation.
-# Remove this after bootstrap toolchain is updated to 6.4.0.
-	@if [ -f ${BOOTSTRAP_DIR}/swift6/bin/swift ]; then \
-		${CP} -R ${BOOTSTRAP_DIR}/swift6/* \
-			${BOOTSTRAP_DIR}; \
-		${RM} -r ${BOOTSTRAP_DIR}/swift6; \
-	fi
 # Work around a clang 21 header modules/libc++ wchar.h regression on FreeBSD
 .if (${OSVERSION} >= 1404501 && ${OSVERSION} < 1500000) || \
     (${OSVERSION} >= 1501501 && ${OSVERSION} < 1600000) || \
@@ -363,7 +383,7 @@ do-build:
 
 do-install:
 .for dir in bin lib
-	@${FIND} ${OUT5_DIR}${SWIFT_TOOLCHAIN_PREFIX}/${dir} -type f -exec ${FILE} {} ';' | \
+	@${FIND} ${OUT5_DIR}${SWIFT_TOOLCHAIN_PREFIX}/${dir} -type f -exec ${FILE} {} + | \
 		${GREP} 'ELF.*FreeBSD' | ${CUT} -d ':' -f 1 | \
 		${XARGS} ${STRIP_CMD} --strip-debug
 .endfor
@@ -396,7 +416,7 @@ make-bootstrap-archive:
 		-f ${WRKDIR}/${PORTNAME}${PKGNAMESUFFIX}-${DISTVERSION}.pkg \
 		-C ${STAGEDIR} \
 		--include '/usr/local/swift6/*'
-	${TAR} -cJf ${WRKDIR}/${PORTNAME}${PKGNAMESUFFIX}-bootstrap-${DISTVERSION}-${SWIFT_ARCH}-unknown-${OPSYS:tl}${EXTRACT_SUFX} \
+	${TAR} -cJf ${WRKDIR}/${PORTNAME}${PKGNAMESUFFIX}-bootstrap-${DISTVERSION}-${SWIFT_ARCH}-unknown-${OPSYS:tl}${_BOOTSTRAP_OSSUFX}${EXTRACT_SUFX} \
 		--options 'xz:threads=${MAKE_JOBS_NUMBER}' \
 		-s '|^\./|${PORTNAME}${PKGNAMESUFFIX}-bootstrap/|' \
 		-C ${STAGEDIR} .

@@ -30,8 +30,10 @@
     SUBDIR += R-cran-magick
     SUBDIR += R-cran-munsell
     SUBDIR += R-cran-pROC
+    SUBDIR += R-cran-patchwork
     SUBDIR += R-cran-pdftools
     SUBDIR += R-cran-pixmap
+    SUBDIR += R-cran-plotrix
     SUBDIR += R-cran-png
     SUBDIR += R-cran-qcc
     SUBDIR += R-cran-qpdf
@@ -391,6 +393,7 @@
     SUBDIR += jasper
     SUBDIR += jave6
     SUBDIR += jbig2dec
+    SUBDIR += jbig2enc
     SUBDIR += jbigkit
     SUBDIR += jdraw
     SUBDIR += jgraph
@@ -406,7 +409,6 @@
     SUBDIR += jpegoptim
     SUBDIR += jslice
     SUBDIR += kamera
-    SUBDIR += kamerka
     SUBDIR += katarakt
     SUBDIR += kcolorchooser
     SUBDIR += kcolorpicker
@@ -661,6 +663,7 @@
     SUBDIR += ogre3d19
     SUBDIR += oidn
     SUBDIR += okular
+    SUBDIR += omasnap
     SUBDIR += open3d
     SUBDIR += openboard
     SUBDIR += opencollada
@@ -837,6 +840,7 @@
     SUBDIR += pgplot
     SUBDIR += pho
     SUBDIR += photivo
+    SUBDIR += photocraft
     SUBDIR += photoflare
     SUBDIR += photopc
     SUBDIR += photoqt
@@ -869,6 +873,7 @@
     SUBDIR += plantuml
     SUBDIR += plasma-kmod
     SUBDIR += plasma6-spectacle
+    SUBDIR += plasma6lts-spectacle
     SUBDIR += plotutils
     SUBDIR += plutosvg
     SUBDIR += plutovg
@@ -912,7 +917,6 @@
     SUBDIR += py-PyOpenGL
     SUBDIR += py-PyOpenGL-accelerate
     SUBDIR += py-actdiag
-    SUBDIR += py-agx-emulsion
     SUBDIR += py-albucore
     SUBDIR += py-albumentations
     SUBDIR += py-altair
@@ -977,6 +981,7 @@
     SUBDIR += py-kornia
     SUBDIR += py-kornia-rs
     SUBDIR += py-leather
+    SUBDIR += py-lensfunpy
     SUBDIR += py-liffile
     SUBDIR += py-mapclassify
     SUBDIR += py-mayavi
@@ -1014,6 +1019,7 @@
     SUBDIR += py-plotly
     SUBDIR += py-png
     SUBDIR += py-pointpats
+    SUBDIR += py-polyxios
     SUBDIR += py-projpicker
     SUBDIR += py-proplot
     SUBDIR += py-py_svg_hush
@@ -1051,6 +1057,7 @@
     SUBDIR += py-python-poppler-qt5
     SUBDIR += py-pyvips
     SUBDIR += py-pyvista
+    SUBDIR += py-pyvista-validation
     SUBDIR += py-pyx
     SUBDIR += py-pyzbar
     SUBDIR += py-qpageview
@@ -1064,6 +1071,7 @@
     SUBDIR += py-rasterstats
     SUBDIR += py-rawkit
     SUBDIR += py-rawpy
+    SUBDIR += py-rendercanvas
     SUBDIR += py-rich-pixels
     SUBDIR += py-rioxarray
     SUBDIR += py-rlpycairo
@@ -1074,6 +1082,7 @@
     SUBDIR += py-simplejpeg
     SUBDIR += py-sorl-thumbnail
     SUBDIR += py-spectra
+    SUBDIR += py-spektrafilm
     SUBDIR += py-sqlalchemy-imageattach
     SUBDIR += py-svg.path
     SUBDIR += py-svg.py
@@ -1086,6 +1095,7 @@
     SUBDIR += py-tkcolorpicker
     SUBDIR += py-toyplot
     SUBDIR += py-traitsui
+    SUBDIR += py-trimesh
     SUBDIR += py-ueberzug
     SUBDIR += py-urbanaccess
     SUBDIR += py-urbansim
@@ -1097,6 +1107,7 @@
     SUBDIR += py-vulkan
     SUBDIR += py-wand
     SUBDIR += py-webcolors
+    SUBDIR += py-wgpu
     SUBDIR += py-willow
     SUBDIR += py-yaswfp
     SUBDIR += py-zbar-py
@@ -1253,6 +1264,7 @@
     SUBDIR += synfigstudio
     SUBDIR += tachyon
     SUBDIR += telak
+    SUBDIR += tensaku
     SUBDIR += tesseract
     SUBDIR += tesseract-data
     SUBDIR += tgif
@@ -1312,6 +1324,7 @@
     SUBDIR += waylandpp
     SUBDIR += webp
     SUBDIR += webp-pixbuf-loader
+    SUBDIR += wgpu-native
     SUBDIR += wings
     SUBDIR += wmicons
     SUBDIR += wrapland

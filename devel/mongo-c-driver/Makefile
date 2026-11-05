@@ -1,6 +1,6 @@
 PORTNAME=	mongo-c-driver
 # Note: devel/mongo-cxx-driver requires specific versions of this port
-DISTVERSION=	2.3.3
+DISTVERSION=	2.5.7
 CATEGORIES=	devel
 
 MAINTAINER=	ports@bsdserwis.com
@@ -10,7 +10,7 @@ WWW=		https://github.com/mongodb/mongo-c-driver
 LICENSE=	APACHE20
 LICENSE_FILE=	${WRKSRC}/COPYING
 
-BUILD_DEPENDS=	libbson>=2.3.3:devel/libbson
+BUILD_DEPENDS=	libbson==${DISTVERSION}:devel/libbson
 LIB_DEPENDS=	libbson2.so:devel/libbson \
 		libutf8proc.so:textproc/utf8proc \
 		libzstd.so:archivers/zstd
@@ -24,8 +24,6 @@ GH_ACCOUNT=	mongodb
 GH_PROJECT=	mongo-c-driver
 USE_LDCONFIG=	yes
 
-PLIST_SUB=	VERSION=${DISTVERSION}
-
 CMAKE_ARGS=	-DENABLE_ZLIB=SYSTEM
 CMAKE_ON=	ENABLE_MONGOC \
 		ENABLE_ZSTD \
@@ -35,6 +33,8 @@ CMAKE_OFF=	BUILD_TESTING \
 		ENABLE_TESTS \
 		ENABLE_UNINSTALL \
 		USE_BUNDLED_UTF8PROC
+
+PLIST_SUB=	VERSION=${DISTVERSION}
 
 OPTIONS_DEFINE=		CRYPTOPROFILE DOCS ICU MONGODBAWS RDTSCP SASL SNAPPY \
 			SRV SSL ZSTD

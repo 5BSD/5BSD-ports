@@ -1,5 +1,5 @@
 PORTNAME=	linux-remotedesktopmanager
-DISTVERSION=	2026.3.0.5
+DISTVERSION=	2026.3.1.2
 CATEGORIES=	net linux
 MASTER_SITES=	https://cdn.devolutions.net/download/Linux/RDM/${DISTVERSION}/
 DISTNAME=	RemoteDesktopManager_${DISTVERSION}_amd64

@@ -1,6 +1,7 @@
 PORTNAME=	freefem++
 DISTVERSIONPREFIX=	v
 DISTVERSION=	4.17
+PORTREVISION=	1
 CATEGORIES=	math science
 
 MAINTAINER=	yuri@FreeBSD.org
@@ -20,12 +21,11 @@ LIB_DEPENDS=	libarpack.so:math/arpack-ng \
 		libcholmod.so:math/suitesparse-cholmod \
 		libcolamd.so:math/suitesparse-colamd \
 		libumfpack.so:math/suitesparse-umfpack \
-		libarpack.so:math/arpack-ng@mpich \
 		libfftw3.so:math/fftw3 \
 		libgsl.so:math/gsl \
 		libmetis.so:math/metis \
-		libmumps_common.so:math/mumps \
-		libscotch.so:cad/scotch \
+		libmumps_common.so:math/mumps-edf \
+		libscotch.so:cad/scotch-edf \
 		libnlopt.so:math/nlopt \
 		libsuperlu.so:math/superlu
 RUN_DEPENDS=	bash:shells/bash \

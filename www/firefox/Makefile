@@ -1,5 +1,5 @@
 PORTNAME=	firefox
-DISTVERSION=	157.0
+DISTVERSION=	160.0
 PORTEPOCH=	2
 CATEGORIES=	www wayland
 MASTER_SITES=	MOZILLA/${PORTNAME}/releases/${DISTVERSION}${DISTVERSIONSUFFIX}/source \
@@ -14,10 +14,8 @@ NOT_FOR_ARCHS=		i386
 NOT_FOR_ARCHS_REASON=	fails to build: rust needs more address space than platform can provide
 
 BUILD_DEPENDS=	nspr>=4.32:devel/nspr \
-		nss>=3.129:security/nss \
+		nss>=3.132:security/nss \
 		libevent>=2.1.8:devel/libevent \
-		harfbuzz>=10.1.0:print/harfbuzz \
-		graphite2>=1.3.14:graphics/graphite2 \
 		png>=1.6.45:graphics/png \
 		dav1d>=1.0.0:multimedia/dav1d \
 		libvpx>=1.15.0:multimedia/libvpx \
@@ -49,10 +47,6 @@ BUILD_DEPENDS+=	${LOCALBASE}/share/wasi-sysroot/lib/wasm32-wasip1/libc++abi.a:de
 		${LOCALBASE}/share/wasi-sysroot/lib/wasm32-wasip1/libc.a:devel/wasi-libc@${LLVM_VERSION} \
 		wasi-compiler-rt${LLVM_VERSION}>0:devel/wasi-compiler-rt${LLVM_VERSION}
 MOZ_OPTIONS+=	--with-wasi-sysroot=${LOCALBASE}/share/wasi-sysroot
-.endif
-
-.if ${ARCH} == powerpc64le && ${OSVERSION} < 1600020
-EXTRA_PATCHES+=	${PATCHDIR}/extra-patch-config_makefiles_rust.mk
 .endif
 
 post-extract:

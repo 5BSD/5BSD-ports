@@ -1,9 +1,9 @@
 PORTNAME=	fjord
-DISTVERSION=	0.3.0
+DISTVERSION=	0.4.2
 CATEGORIES=	sysutils
 MASTER_SITES=	https://github.com/daemonless/${PORTNAME}/releases/download/v${DISTVERSION}/
 
-MAINTAINER=	michaeljohnson@ahze.net
+MAINTAINER=	ahze@FreeBSD.org
 COMMENT=	Web UI for managing container compose stacks
 WWW=		https://fjord.daemonless.io
 
@@ -30,7 +30,7 @@ PODMAN_RUN_DEPENDS=	podman:sysutils/podman \
 		${PYTHON_PKGNAMEPREFIX}podman-compose>=1.2.0:sysutils/podman-compose@${PY_FLAVOR} \
 		ocijail>=0.6.0:sysutils/ocijail \
 		${LOCALBASE}/libexec/cni/dnsname:sysutils/cni-dnsname \
-		${LOCALBASE}/libexec/cni/epair:sysutils/cni-epair
+		cni-epair>=1.2.0:sysutils/cni-epair
 
 PLIST_FILES=	sbin/fjordd
 

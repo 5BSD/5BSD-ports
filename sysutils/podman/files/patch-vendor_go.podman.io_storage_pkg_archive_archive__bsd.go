@@ -6,7 +6,7 @@ high-order bits that don't map to POSIX chmod(2) bit positions.
 
 https://github.com/podman-container-tools/container-libs/pull/935
 
---- vendor/go.podman.io/storage/pkg/archive/archive_bsd.go.orig
+--- vendor/go.podman.io/storage/pkg/archive/archive_bsd.go.orig	2026-10-12 17:19:35 UTC
 +++ vendor/go.podman.io/storage/pkg/archive/archive_bsd.go
 @@ -9,10 +9,26 @@
  	"golang.org/x/sys/unix"

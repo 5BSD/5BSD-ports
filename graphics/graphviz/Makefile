@@ -1,6 +1,6 @@
 PORTNAME=	graphviz
 PORTVERSION=	16.1.0
-PORTREVISION=	0
+PORTREVISION=	2
 CATEGORIES=	graphics tk
 MASTER_SITES=	https://gitlab.com/api/v4/projects/4207231/packages/generic/graphviz-releases/${PORTVERSION}/
 MAINTAINER=	dinoex@FreeBSD.org
@@ -10,7 +10,6 @@ WWW=		https://www.graphviz.org/
 LICENSE=	EPL
 LICENSE_FILE=	${WRKSRC}/COPYING
 
-BUILD_DEPENDS=	tclsh${TCL_VER}:lang/tcl${_TCLTK_WANTED_VERSION}
 LIB_DEPENDS=	libltdl.so:devel/libltdl \
 		libpng.so:graphics/png \
 		libwebp.so:graphics/webp \

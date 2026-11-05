@@ -83,14 +83,6 @@
  	}
  
  	if (ctx.debug_level >= 4) {
-@@ -1835,7 +1838,6 @@
- 
- 	sql_arg_t dep_arg[] = {
- 		SQL_ARG(pkg->origin),
--		SQL_ARG(pkg->version),
- 		SQL_ARG(pkg->version ? pkg->version : ""),
- 		SQL_ARG(pkg->name),
- 	};
 @@ -1972,7 +1975,6 @@
  			SQL_ARG(dir->gname),
  			SQL_ARG(dir->perm),

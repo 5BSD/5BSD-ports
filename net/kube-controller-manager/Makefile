@@ -1,10 +1,10 @@
 PORTNAME=	kube-controller-manager
 PORTVERSION=	1.27.2
 DISTVERSIONPREFIX=	v
-PORTREVISION=	32
+PORTREVISION=	34
 CATEGORIES=	net
 
-MAINTAINER=	loic.blot@unix-experience.fr
+MAINTAINER=	ahze@FreeBSD.org
 COMMENT=	Kubernetes controller manager daemon
 WWW=		https://github.com/kubernetes/kubernetes
 

@@ -1,5 +1,5 @@
 PORTNAME=	mango
-DISTVERSION=	0.17.5
+DISTVERSION=	0.18.5
 PORTREVISION=	0
 CATEGORIES=	x11-wm
 
@@ -14,8 +14,10 @@ BUILD_DEPENDS=	evdev-proto>=5.8:devel/evdev-proto \
 		hwdata>=0.399:misc/hwdata \
 		wayland-protocols>=1.24:graphics/wayland-protocols
 LIB_DEPENDS=	libcjson.so:devel/libcjson \
+		libdisplay-info.so:sysutils/libdisplay-info \
 		libdrm.so:graphics/libdrm \
 		libinput.so:x11/libinput \
+		libliftoff.so:graphics/libliftoff \
 		libpcre2-8.so:devel/pcre2 \
 		libpixman-1.so:x11/pixman \
 		libscenefx-0.5.so:x11-toolkits/scenefx05 \
@@ -41,12 +43,12 @@ OPTIONS_DEFINE=	DOCS
 ICONSDIR=	share/icons/hicolor/512x512/apps
 
 post-patch:
-	@${REINPLACE_CMD} -E -e "s|(assets/(config.conf))|\1', rename : '\2.sample|1" \
+	@${REINPLACE_CMD} -E -e "s#(assets/(config.(conf|toml)))#\1', rename : '\2.sample#1" \
 		${WRKSRC}/meson.build
 
 post-install:
 	${MKDIR} ${STAGEDIR}${PREFIX}/${ICONSDIR}
-	${INSTALL_DATA} ${WRKSRC}/assets/mango.png ${STAGEDIR}${PREFIX}/${ICONSDIR}
+	${INSTALL_DATA} ${WRKSRC}/assets/mango.svg ${STAGEDIR}${PREFIX}/${ICONSDIR}
 
 post-install-DOCS-on:
 	${MKDIR} ${STAGEDIR}${DOCSDIR}

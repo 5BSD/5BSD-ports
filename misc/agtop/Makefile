@@ -1,6 +1,7 @@
 PORTNAME=	agtop
 DISTVERSIONPREFIX=	v
 DISTVERSION=	2.5.0
+PORTREVISION=	2
 CATEGORIES=	misc # machine-learning
 
 MAINTAINER=	matt@brassey.io

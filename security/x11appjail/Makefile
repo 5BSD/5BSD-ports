@@ -1,10 +1,10 @@
 PORTNAME=	x11appjail
 DISTVERSIONPREFIX=	v
-DISTVERSION=	1.2.1
+DISTVERSION=	2.2.0
 CATEGORIES=	security
 
 MAINTAINER=	dtxdf@FreeBSD.org
-COMMENT=	Tool for creating, verifying, installing, and running AppJails
+COMMENT=	FreeBSD application sandboxing and distribution framework
 
 LICENSE=	BSD3CLAUSE
 LICENSE_FILE=	${WRKSRC}/LICENSE
@@ -33,26 +33,12 @@ GH_PROJECT=	x11appjail
 NO_BUILD=	yes
 SUB_FILES=	pkg-message
 
-PORTEXAMPLES=	*
-
-OPTIONS_DEFINE=		BLAKE3 EXAMPLES
-OPTIONS_DEFAULT=	BLAKE3
+OPTIONS_DEFINE=		BLAKE3 DBUS
+OPTIONS_DEFAULT=	BLAKE3 DBUS
 
 BLAKE3_DESC=		Enable support for Blake3
+DBUS_DESC=		Install with xdg-dbus-proxy
 BLAKE3_RUN_DEPENDS=	b3sum:sysutils/b3sum
-
-post-install-EXAMPLES-on:
-	@${MKDIR} ${STAGEDIR}/${EXAMPLESDIR}
-	@cd ${WRKSRC}/share/examples/x11appjail && ${COPYTREE_SHARE} . ${STAGEDIR}${EXAMPLESDIR}
-	@for app in ${STAGEDIR}${EXAMPLESDIR}/Apps/*; do \
-		${CHMOD} +x $${app}/build.sh; \
-		${CHMOD} +x $${app}/create; \
-		${CHMOD} +x $${app}/install; \
-		${CHMOD} +x $${app}/run; \
-		${CHMOD} +x $${app}/uninstall; \
-		if [ -f "$${app}/X" ]; then ${CHMOD} +x $${app}/X; fi; \
-		${CHMOD} +x $${app}/.reproduce/build.sh; \
-		if [ -f "$${app}/perms.sh" ]; then ${CHMOD} +x $${app}/perms.sh; fi; \
-	done
+DBUS_RUN_DEPENDS=	xdg-dbus-proxy:devel/xdg-dbus-proxy
 
 .include <bsd.port.mk>

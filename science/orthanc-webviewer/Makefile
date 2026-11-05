@@ -17,7 +17,7 @@ DISTFILES=	OrthancWebViewer-${PORTVERSION}.tar.gz:webviewer \
 DIST_SUBDIR=	orthanc
 EXTRACT_ONLY=	OrthancWebViewer-${PORTVERSION}.tar.gz
 
-MAINTAINER=	jwb@FreeBSD.org
+MAINTAINER=	longros@FreeBSD.org
 COMMENT=	Orthanc web viewer plugin
 WWW=		https://www.orthanc-server.com/static.php?page=web-viewer
 
@@ -27,11 +27,10 @@ LICENSE_FILE=	${WRKSRC}/COPYING
 BUILD_DEPENDS=	${LOCALBASE}/include/orthanc/OrthancCPlugin.h:science/orthanc \
 		googletest>0:devel/googletest
 LIB_DEPENDS=	libboost_atomic.so:devel/boost-libs \
-		libjsoncpp.so:devel/jsoncpp \
-		libsqlite3.so:databases/sqlite3
+		libjsoncpp.so:devel/jsoncpp
 RUN_DEPENDS=	Orthanc:science/orthanc
 
-USES=		cmake localbase python:build
+USES=		cmake localbase python:build sqlite
 USE_LDCONFIG=	${DATADIR}/plugins
 
 CMAKE_ARGS=	-DORTHANC_FRAMEWORK_ROOT=${WRKSRC}/ThirdPartyDownloads/Orthanc-${ORTHANC_VER}/OrthancFramework/Sources \

@@ -1,6 +1,7 @@
 PORTNAME=	mongodb
 DISTVERSIONPREFIX=	r
-DISTVERSION=	8.0.29
+DISTVERSION=	8.0.34
+PORTREVISION=	1
 CATEGORIES=	databases net
 MASTER_SITES+=	LOCAL/ronald:mongodb_bazel \
 		https://codeload.github.com/bazelbuild/bazel-central-registry/tar.gz/${BAZEL_REGISTRY_COMMIT}?dummy=/:bazel_registry \
@@ -23,8 +24,6 @@ LICENSE_NAME_SSPLv1=	Server Side Public License Version 1
 LICENSE_FILE_SSPLv1=	${WRKSRC}/LICENSE-Community.txt
 LICENSE_PERMS_SSPLv1=	dist-mirror dist-sell pkg-mirror pkg-sell auto-accept
 
-BROKEN_FreeBSD_16=	src/third_party/boost/boost/mpl/aux_/integral_wrapper.hpp:71:51: error: in-class initializer for static data member is not a constant expression
-
 ONLY_FOR_ARCHS=	aarch64 amd64 powerpc64le
 ONLY_FOR_ARCHS_REASON=	only ported to amd64, aarch64, and powerpc64le on FreeBSD; upstream supports arm64, ppc64le, s390x, and x86-64
 
@@ -40,7 +39,6 @@ BUILD_DEPENDS=	bazel:devel/bazel7 \
 		${PYTHON_PKGNAMEPREFIX}pyyaml>=3.11:devel/py-pyyaml@${PY_FLAVOR} \
 		${PYTHON_PKGNAMEPREFIX}requests>0:www/py-requests@${PY_FLAVOR} \
 		${PYTHON_PKGNAMEPREFIX}retry2>0:devel/py-retry2@${PY_FLAVOR} \
-		git:devel/git@tiny \
 		rust-cbindgen>0:devel/rust-cbindgen \
 		yq:textproc/go-yq
 # build depends used while running ${WRKSRC}/src/third_party/mozjs/scripts/gen-config.sh
@@ -78,7 +76,13 @@ CONFIGURE_ENV+=		PYTHON3="${PYTHON_CMD}"
 BAZEL=			${LOCALBASE}/bin/bazel
 BAZEL_OUTPUT_USER_ROOT=	${WRKDIR}/bazel
 BAZEL_REPOSITORY_CACHE=${WRKDIR}/bazel-repository-cache
-BAZEL_STARTUP_ARGS=	--output_user_root=${BAZEL_OUTPUT_USER_ROOT}
+# --batch: run the build in the bazel JVM directly instead of through the
+# client/server pair. The client's "is the server's cwd still my workspace"
+# check (GetProcessCWD() in blaze_util_bsd.cc) returns an empty path instead
+# of nullptr when the kernel cannot resolve the cwd, e.g. inside a poudriere
+# jail, which makes the client kill and restart the server forever.
+BAZEL_STARTUP_ARGS=	--batch \
+			--output_user_root=${BAZEL_OUTPUT_USER_ROOT}
 BAZEL_ENV=		BAZEL_SH=${LOCALBASE}/bin/bash \
 			CC="${CC}" \
 			CXX="${CXX}" \
@@ -99,12 +103,10 @@ BAZEL_ARGS=		--repository_cache=${BAZEL_REPOSITORY_CACHE} \
 			--action_env=AR=llvm-ar \
 			--action_env=CC=${CC} \
 			--action_env=CXX=${CXX} \
-			--action_env=PATH=${LOCALBASE}/bin:/bin:/usr/bin \
 			--repo_env=CC=${CC} \
 			--repo_env=CXX=${CXX} \
 			--repo_env=LOCALBASE=${LOCALBASE} \
 			--repo_env=MONGO_USE_SYSTEM_PYTHON=1 \
-			--repo_env=PATH=${LOCALBASE}/bin:/bin:/usr/bin \
 			--repo_env=PYTHON_CMD=${PYTHON_CMD} \
 			--build_enterprise=False \
 			--enterprise_feature_all=False \
@@ -119,13 +121,18 @@ BAZEL_ARGS=		--repository_cache=${BAZEL_REPOSITORY_CACHE} \
 			--define=MONGO_VERSION=${DISTVERSION} \
 			--cxxopt=-isystem${LOCALBASE}/include \
 			--cxxopt=-DBOOST_NO_CXX98_FUNCTION_BASE \
+			--cxxopt=-Wno-unused-function \
+			--cxxopt=-Wno-invalid-offsetof \
+			--cxxopt=-Wno-defaulted-function-deleted \
+			--cxxopt=-Wno-unknown-warning-option \
+			--cxxopt=-Wno-macro-redefined \
 			--linkopt=-L${LOCALBASE}/lib \
 			--linkopt=-lm \
 			--linkopt=-pthread \
 			--linkopt=-lexecinfo \
 			--linkopt=-lkvm \
 			--noexperimental_collect_system_network_usage
-ALL_TARGET=		install-core
+ALL_TARGET=		install-dist
 
 CONFLICTS_INSTALL=	mongodb[0-9][0-9]
 
@@ -183,6 +190,7 @@ MOZJS_ARCH=	${ARCH}
 post-extract:
 # Verify we downloaded the proper mozjs git tag.
 	${SH} -xc "test \"X`grep -E '^LIB_GIT_REVISION=' ${MOZJS_WRKSRC}/scripts/import.sh`\" = \"XLIB_GIT_REVISION=${MOZJS_TAG}\""
+	${PATCH} -d ${WRKDIR}/spidermonkey-${MOZJS_TAG} -p1 < ${PATCHDIR}/d497aa4f770ca02f6083e93b94996a8fe32c2ff4.patch
 
 pre-configure:
 # Replacement of ${WRKSRC}/src/third_party/mozjs/scripts/import.sh
@@ -198,8 +206,6 @@ do-build:
 do-install:
 	${INSTALL_PROGRAM} ${BAZEL_INSTALL_WRKSRC}/bin/mongod ${STAGEDIR}${PREFIX}/bin/
 	${INSTALL_PROGRAM} ${BAZEL_INSTALL_WRKSRC}/bin/mongos ${STAGEDIR}${PREFIX}/bin/
-	${STRIP_CMD} ${STAGEDIR}${PREFIX}/bin/mongod
-	${STRIP_CMD} ${STAGEDIR}${PREFIX}/bin/mongos
 	${INSTALL_DATA} ${WRKSRC}/rpm/mongod.conf ${STAGEDIR}${PREFIX}/etc/mongodb.conf.sample
 	${MKDIR} ${STAGEDIR}${DOCSDIR}
 .for doc in LICENSE-Community.txt distsrc/MPL-2 distsrc/README distsrc/THIRD-PARTY-NOTICES

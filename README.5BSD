@@ -22,31 +22,49 @@ configured hardware update repository or a home-directory repository.
 
 What 5BSD maintains beyond upstream FreeBSD
 -----------------------------------------
-Inventory checked 2026-10-08 at ports commit a10d155af. This is an inventory
-of the checkout, not a claim that every listed project is packaged or tested.
-Most of this tree remains upstream FreeBSD ports. Compared with the imported
-baseline e3ad8fc58, the custom port origins are:
+Inventory checked 2026-11-05 after merging FreeBSD ports main 30927e6a72.
+Upstream is the "freebsd" remote (https://git.freebsd.org/ports.git); later
+syncs merge freebsd/main, without rewriting history. Run
+Tools/scripts/5bsd-pf-check.sh after each merge. This is an inventory of the
+checkout, not a claim that every listed project is packaged or tested. Most
+of this tree remains upstream FreeBSD ports. The custom port origins are:
 
-  lang/dart                    3.13.5  Native Dart SDK and bootstrap support
   x11-toolkits/flutter-engine   0.1.0   Native Flutter GTK engine and tooling
   sysutils/5bsd-instruments     0.3.9   Native Flutter instrumentation app
   sysutils/5bsd-imager          0.2.0   Native Flutter image-writing app
 
-These ports name kory@5bsd.org as maintainer. Dart and the Flutter engine use
-the same pinned 5bsd-flutter source snapshot; Dart and Flutter engine ports
-are currently amd64-only. Imager is also amd64-only. Imager's application
-source lives under sysutils/5bsd-imager/files/app in this checkout. Category
-registrations, toolkit smoke tooling and this documentation are also local
-maintenance. Package versions here are an audit snapshot; port Makefiles
-remain authoritative.
+These ports name kory@5bsd.org as maintainer. The Flutter engine and its
+applications are amd64-only. Imager's application source lives under
+sysutils/5bsd-imager/files/app in this checkout. Category registrations,
+toolkit smoke tooling and this documentation are also local maintenance.
+Package versions here are an audit snapshot; port Makefiles remain
+authoritative.
 
-The source/bootstrap archives are referenced through the 5BSD-ports release
-area, not an identified separate public Dart/Flutter fork. Record source
-revision, downstream patch provenance and bootstrap provenance with releases.
-On 2026-10-08 the public API for toolkit-20261004 returned 404; availability
-of the release and exact checksummed assets remains a publication blocker.
+lang/dart is FreeBSD's origin since this sync; 5BSD carries one patch and a
+do-test target (see Native toolkit). Its upstream maintainer stands.
+
+The 5bsd-flutter source snapshot and native bootstrap are referenced through
+the 5BSD-ports release area, not an identified separate public Dart/Flutter
+fork. Record source revision, downstream patch provenance and bootstrap
+provenance with releases. toolkit-20261004 returned 404 on 2026-10-08 and
+again on 2026-11-05, and no copy of 5bsd-flutter-eb529d2bebb5.tar.xz or
+dart-bootstrap-3.13.5-5bsd-amd64.tar.xz was found on the build host on
+2026-11-05. Until the archives are recovered or the snapshot is regenerated,
+flutter-engine, 5bsd-instruments and 5bsd-imager cannot be fetched or built.
 Existing validation notes below describe prior work, not tests rerun during
 this inventory audit. No additional Imager validation is claimed here.
+
+FreeBSD sync (2026-11-05): 4944 upstream commits merged. Where 5BSD patched a
+port that upstream later updated, upstream's version was taken and the 5BSD
+change carried forward: podman 5.8.9, miniupnpd 2.3.11, sshguard 2.6.0,
+sslproxy 0.10.0, suricata 8.0.8, wazuh 4.14.9, misc/ggml 0.27.0 with
+llama-cpp 11669, and drm-612-kmod 6.12.110. ports-mgmt/pkg is 2.9.0; upstream's
+schema is still 42, so the 5BSD migration to 1.0 stands, and the duplicate
+dependency-query argument fix was dropped because upstream carries it.
+lang/python312 keeps its POP3/IMAP backports alongside upstream's unrelated
+divert fix, as 3.12.15_2. The fetch and patch steps were run for every
+5BSD-touched origin that could be fetched; the merge has not been built or
+runtime-tested as a whole. See the commit message for per-port status.
 
 QEMU and ocijail (2026-10-31): emulators/qemu is 11.1.3. It keeps the
 5BSD TCG x86 page-straddle fix (patch-target_i386_tcg_access.c; 11.1.3
@@ -60,8 +78,8 @@ cache, make module resolution work offline. That distfile must be uploaded
 to the 5BSD-ports release area named in MASTER_SITES. Until then, its
 availability blocks publication.
 
-GGML CPU affinity: misc/ggml now carries a native FreeBSD pthread affinity
-patch and an explicit pthread link dependency (port revision 2). Vulkan-only
+GGML CPU affinity: misc/ggml carries a native FreeBSD pthread affinity
+patch and an explicit pthread link dependency. Vulkan-only
 LLVM/SPIR-V build dependencies are conditional, so the CPU-only package builds
 with base Clang. Its base-OpenMP model runs pass at 8/16 threads using
 KMP_BLOCKTIME=0 on the busy validation host. All 21 GGML CTest cases and
@@ -188,30 +206,37 @@ release archives before advertising successful public fetch/install.
 
 Native toolkit
 --------------
-lang/dart builds the native 5BSD Dart SDK from source, using a checksummed
-native bootstrap SDK. The port is amd64-only until other architectures are
-validated. It does not use a Linux runtime. Normal ports fetch/checksum,
-configure, build, stage, package, test and plist checks are supported.
+lang/dart is FreeBSD's port (2026-11-05): the Dart 3.13.5 release tree with
+reviewable patches in files/, built on amd64 and aarch64 from a third-party
+FreeBSD bootstrap SDK (github.com/pattems/dart-sdk-freebsd). It replaces the
+earlier origin built from the unpublished 5bsd-flutter snapshot. Both are the
+same Dart commit, 04bcd1036cdc, so kernel output of this frontend matches the
+snapshot's flutter-engine; an unverified SDK hash is accepted by the VM.
 
-Validation performed: source build on 5BSD, stage QA and plist checks;
-installation through a 5BSD test catalogue in an isolated 5BSD VM; native
-runtime/isolate/file operations and ahead-of-time compilation plus execution.
-VM validation also built/packaged print/indexinfo from this tree, checked all
-Dart distfiles through ports, and reinstalled Dart from the canonical local
-5BSD-ports catalogue using the new base configuration.
-This is not a claim of a clean-room VM rebuild of the entire SDK.
+The FreeBSD port builds Dart as a Linux variant: Platform.operatingSystem is
+"linux" and Platform.isLinux is true in standalone programs, unlike the earlier
+"5bsd". The flutter-engine runtime still reports "5bsd". files/smoke.dart
+records this. The 5BSD delta is patch-pkg_vm_lib_target__os.dart, which adds
+--target-os=5bsd for 5bsd-imager and 5bsd-instruments, plus the do-test target.
 
-Release preparation is incomplete: toolkit source/bootstrap archives are
-staged locally, but the proposed toolkit-20261004 GitHub release has not been
-published. Public fetch will not work until those exact checksummed archives
-are uploaded. Do not publish a different archive under the same filename.
-The source exporter records the patched working-tree provenance; this is a
-development snapshot, not an assertion of an unmodified upstream checkout.
+Validation: source inspection and fetch, checksum and patch steps only. This
+SDK has not been built to completion on 5BSD; a 2026-11-03 attempt from the
+same recipe left a partial tree and no dart-sdk directory. The earlier origin's
+build, VM install and runtime results do not apply to it. Compatibility with
+the Flutter applications is untested.
+
+Release preparation is incomplete: the toolkit source/bootstrap archives for
+flutter-engine and its applications are not published, and see the inventory
+above for their absence on the build host. Public fetch will not work until
+those exact checksummed archives are uploaded. Do not publish a different
+archive under the same filename. The source exporter records the patched
+working-tree provenance; this is a development snapshot, not an assertion of
+an unmodified upstream checkout.
 
 The companion origins are x11-toolkits/flutter-engine and
 sysutils/5bsd-instruments. The engine builds the 5BSD GTK library, matching
-gen_snapshot tool, public headers and patched Dart platform SDK from the same
-source snapshot as the Dart port. Instruments builds an AOT application offline
+gen_snapshot tool, public headers and patched Dart platform SDK from the
+5bsd-flutter source snapshot. Instruments builds an AOT application offline
 from pinned Dart packages and packages its audited DTrace scripts in an
 account-independent capability bundle. The port verifies the bundle, tests
 the registration lifecycle in a disposable filesystem, and includes package

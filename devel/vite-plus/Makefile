@@ -1,7 +1,7 @@
 PORTNAME=	vite-plus
 DISTVERSIONPREFIX=v
 DISTVERSION=	0.2.9
-PORTREVISION=	2
+PORTREVISION=	3
 CATEGORIES=	devel
 
 # rolldown is a PATH dependency (~48 `path = "./rolldown/crates/*"` entries in
@@ -24,7 +24,7 @@ WWW=		https://github.com/voidzero-dev/vite-plus \
 LICENSE=	MIT
 LICENSE_FILE=	${WRKSRC}/LICENSE
 
-ONLY_FOR_ARCHS=	aarch64 amd64
+ONLY_FOR_ARCHS=	aarch64 amd64 powerpc64 powerpc64le
 
 LIB_DEPENDS=	libzstd.so:archivers/zstd
 
@@ -64,7 +64,6 @@ PLIST_FILES=	bin/vp \
 VITE_RELEASE_LIBS=	libvite_plus_cli.so \
 			librolldown_binding.so \
 			libvp_pm_cli_macros.so
-
 
 # The framework auto-extracts every DISTFILE into ${WRKDIR}; move the rolldown
 # tree to ${WRKSRC}/rolldown so the ./rolldown/crates/* path deps resolve.

@@ -39,8 +39,15 @@ PORTEXAMPLES=	*
 .include <bsd.port.pre.mk>
 
 .if ${ARCH} == i386 && ${OSREL:R} == 14
-# Unknown ISA
-CMAKE_ARGS+=	-DEMBREE_ISA_AVX512:BOOL=OFF
+BROKEN=		unsupported (Unknown ISA)
+.endif
+
+.if ${ARCH:Mpowerpc64*}
+# embree, used by the helide example device, has no PowerPC support
+CMAKE_ARGS+=	-DBUILD_HELIDE_DEVICE=OFF
+PLIST_SUB+=	HELIDE="@comment "
+.else
+PLIST_SUB+=	HELIDE=""
 .endif
 
 pre-configure:

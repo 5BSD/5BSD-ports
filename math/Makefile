@@ -9,6 +9,7 @@
     SUBDIR += R-cran-BsMD
     SUBDIR += R-cran-CVST
     SUBDIR += R-cran-ChangeAnomalyDetection
+    SUBDIR += R-cran-CompQuadForm
     SUBDIR += R-cran-DEoptimR
     SUBDIR += R-cran-DRR
     SUBDIR += R-cran-Deriv
@@ -101,7 +102,10 @@
     SUBDIR += R-cran-mclust
     SUBDIR += R-cran-mcmc
     SUBDIR += R-cran-memisc
+    SUBDIR += R-cran-meta
+    SUBDIR += R-cran-metabook
     SUBDIR += R-cran-metadat
+    SUBDIR += R-cran-metafor
     SUBDIR += R-cran-minqa
     SUBDIR += R-cran-misc3d
     SUBDIR += R-cran-miscTools
@@ -441,6 +445,7 @@
     SUBDIR += kfr
     SUBDIR += kig
     SUBDIR += kissat
+    SUBDIR += kissfft
     SUBDIR += kktdirect
     SUBDIR += kmplot
     SUBDIR += labplot
@@ -537,7 +542,7 @@
     SUBDIR += mtrxmath
     SUBDIR += multichoose
     SUBDIR += mumps
-    SUBDIR += mumps4
+    SUBDIR += mumps-edf
     SUBDIR += munkres-cpp
     SUBDIR += muparser
     SUBDIR += muparserx
@@ -661,6 +666,7 @@
     SUBDIR += octave-forge-optiminterp
     SUBDIR += octave-forge-outliers
     SUBDIR += octave-forge-parallel
+    SUBDIR += octave-forge-parts
     SUBDIR += octave-forge-pde1dm
     SUBDIR += octave-forge-piqp
     SUBDIR += octave-forge-pkg-octave-doc
@@ -705,6 +711,7 @@
     SUBDIR += ogdf
     SUBDIR += oink
     SUBDIR += oleo
+    SUBDIR += omacalc
     SUBDIR += onednn
     SUBDIR += onednn252
     SUBDIR += openblas
@@ -1044,6 +1051,7 @@
     SUBDIR += py-isosurfaces
     SUBDIR += py-jacobi
     SUBDIR += py-jax
+    SUBDIR += py-jaxlib
     SUBDIR += py-jij-cimod
     SUBDIR += py-kahip
     SUBDIR += py-keras
@@ -1073,6 +1081,7 @@
     SUBDIR += py-moarchiving
     SUBDIR += py-modin
     SUBDIR += py-moocore
+    SUBDIR += py-mplcursors
     SUBDIR += py-mpmath
     SUBDIR += py-munkres
     SUBDIR += py-narwhals

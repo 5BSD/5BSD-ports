@@ -1,6 +1,6 @@
 PORTNAME=	agave
 DISTVERSIONPREFIX=	v
-DISTVERSION=	4.3.0
+DISTVERSION=	4.3.2
 CATEGORIES=	security
 PKGNAMESUFFIX=	-blockchain
 
@@ -53,6 +53,8 @@ CARGO_CRATES=	Inflector-0.11.4 \
 		anstyle-query-1.1.2 \
 		anstyle-wincon-3.0.6 \
 		anyhow-1.0.104 \
+		anza-quinn-0.11.11-rustsec20260339 \
+		anza-quinn-proto-0.11.15-rustsec20260339 \
 		arbitrary-1.4.2 \
 		arc-swap-1.9.2 \
 		archery-1.2.2 \

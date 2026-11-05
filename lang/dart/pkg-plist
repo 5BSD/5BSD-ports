@@ -1,6 +1,5 @@
 bin/dart
 bin/dartaotruntime
-bin/dartvm
 lib/dart/LICENSE
 lib/dart/README
 lib/dart/bin/dart
@@ -514,6 +513,7 @@ lib/dart/bin/resources/devtools/unsupported-browser.html
 lib/dart/bin/resources/devtools/version.json
 lib/dart/bin/snapshots/analysis_server.dart.snapshot
 lib/dart/bin/snapshots/analysis_server_aot.dart.snapshot
+lib/dart/bin/snapshots/dart2bytecode.dart.snapshot
 lib/dart/bin/snapshots/dart2js_aot.dart.snapshot
 lib/dart/bin/snapshots/dart2wasm_product.snapshot
 lib/dart/bin/snapshots/dart_tooling_daemon_aot.dart.snapshot
@@ -526,6 +526,7 @@ lib/dart/bin/snapshots/gen_kernel_aot.dart.snapshot
 lib/dart/bin/snapshots/kernel-service.dart.snapshot
 lib/dart/bin/snapshots/kernel_worker_aot.dart.snapshot
 lib/dart/bin/utils/gen_snapshot
+lib/dart/bin/utils/wasm-opt
 lib/dart/dartdoc_options.yaml
 lib/dart/include/dart_api.h
 lib/dart/include/dart_api_dl.c

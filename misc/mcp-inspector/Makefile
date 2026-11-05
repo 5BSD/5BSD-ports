@@ -1,5 +1,5 @@
 PORTNAME=	mcp-inspector
-DISTVERSION=	2.8.0
+DISTVERSION=	2.12.0
 CATEGORIES=	misc # machine-learning
 DISTFILES=	${DISTNAME}${EXTRACT_SUFX}
 
@@ -12,7 +12,7 @@ LICENSE=	APACHE20 MIT
 LICENSE_COMB=	multi
 #LICENSE_FILE=	${WRKSRC}/node_modules/${PACKAGE_NAME}/LICENSE
 
-ONLY_FOR_ARCHS=		aarch64 amd64
+ONLY_FOR_ARCHS=		aarch64 amd64 powerpc64 powerpc64le
 ONLY_FOR_ARCHS_REASON=	distinfo was only generated for these architectures # feel free to add more architectures
 
 FETCH_DEPENDS=	npm:www/npm \
@@ -27,7 +27,7 @@ WRKSRC=		${WRKDIR}/inspector-${DISTVERSION}
 
 PACKAGE_NAME=	@modelcontextprotocol/inspector
 
-JS_ARCH=	${ARCH:S/amd64/x64/:S/aarch64/arm64/:S/i386/ia32/:S/powerpc64le/ppc64le/:S/powerpc64/ppc64/:C/armv[67]/arm/} # modeled after electron.mk
+JS_ARCH=	${ARCH:S/amd64/x64/:S/aarch64/arm64/:S/i386/ia32/:S/powerpc64le/ppc64/:S/powerpc64/ppc64/:C/armv[67]/arm/} # modeled after electron.mk
 PLIST_SUB=	JS_ARCH=${JS_ARCH}
 
 DD=		${DISTDIR}/${DIST_SUBDIR}
@@ -40,9 +40,9 @@ FETCH_SCRIPT=	${PORTSDIR}/Tools/scripts/npmjs-fetch-with-dependencies.sh
 # avoid depending on unverifiable prebuilt binaries on any architecture, we
 # always fetch their Rust source and rebuild them ourselves with cargo, on
 # every architecture, the same way.
-RUST_KEYRING_VERSION=		1.3.0
+RUST_KEYRING_VERSION=		2.1.2
 RUST_LIGHTNINGCSS_VERSION=	1.33.0
-RUST_ROLLDOWN_VERSION=		1.2.11
+RUST_ROLLDOWN_VERSION=		1.2.15
 
 USE_GITHUB=	nodefault
 GH_TUPLE=	Brooooooklyn:keyring-node:v${RUST_KEYRING_VERSION}:keyring \
@@ -78,8 +78,6 @@ pre-fetch:
 	fi
 
 post-extract:
-	# keyring-node does not ship a Cargo.lock, use the one we generated
-	@${CP} ${FILESDIR}/Cargo.lock.keyring ${WRKSRC_keyring}/Cargo.lock
 	# single vendored-sources config shared by the 3 cargo projects above
 	@${MKDIR} ${WRKDIR}/.cargo
 	@${ECHO_CMD} '[source.crates-io]' > ${WRKDIR}/.cargo/config.toml

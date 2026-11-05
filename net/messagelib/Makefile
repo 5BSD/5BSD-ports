@@ -1,5 +1,6 @@
 PORTNAME=	messagelib
 DISTVERSION=	${KDE_APPLICATIONS_VERSION}
+PORTREVISION=	1
 CATEGORIES=	net kde kde-applications
 
 MAINTAINER=	kde@FreeBSD.org
@@ -30,7 +31,7 @@ USE_KDE+=	akonadi akonadicontacts akonadimime akonadisearch calendarcore \
 		contacts grantleetheme gravatar identitymanagement ldap \
 		libkdepim libkleo mailtransport mbox mime pimcommon \
 		pimtextedit
-USE_QT=		base
+USE_QT=		base webengine
 USE_XORG=	x11
 USE_LDCONFIG=	yes
 

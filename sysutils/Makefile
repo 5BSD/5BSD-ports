@@ -200,6 +200,7 @@
     SUBDIR += checkrestart
     SUBDIR += chezmoi
     SUBDIR += chgrep
+    SUBDIR += chkcrontab
     SUBDIR += choria
     SUBDIR += chyves
     SUBDIR += cilium
@@ -213,6 +214,7 @@
     SUBDIR += clone
     SUBDIR += clonehdd
     SUBDIR += cloud-nuke
+    SUBDIR += clout
     SUBDIR += clsync
     SUBDIR += cluster-glue
     SUBDIR += cmdwatch
@@ -243,6 +245,8 @@
     SUBDIR += copytape
     SUBDIR += coreos-ct
     SUBDIR += coreutils
+    SUBDIR += cosmic-monitor
+    SUBDIR += coxswain
     SUBDIR += cpdup
     SUBDIR += cpdup-FreeBSD
     SUBDIR += cpu-microcode
@@ -284,7 +288,6 @@
     SUBDIR += ddrescueview
     SUBDIR += debhelper
     SUBDIR += debootstrap
-    SUBDIR += dekit
     SUBDIR += deltarpm
     SUBDIR += deltup
     SUBDIR += deskflow
@@ -525,6 +528,7 @@
     SUBDIR += helm-docs
     SUBDIR += helmfile
     SUBDIR += herbe
+    SUBDIR += herdr
     SUBDIR += hexpeek
     SUBDIR += hextools
     SUBDIR += hexyl
@@ -650,7 +654,7 @@
     SUBDIR += kubo-go
     SUBDIR += kustomize
     SUBDIR += kvmclock-kmod
-    SUBDIR += lava
+    SUBDIR += lazydocker
     SUBDIR += lazyssh
     SUBDIR += lbl-cf
     SUBDIR += lbl-hf
@@ -732,6 +736,7 @@
     SUBDIR += lxsplit
     SUBDIR += lxtask
     SUBDIR += lxterminal
+    SUBDIR += mac_igmpproxy
     SUBDIR += mac_nonet
     SUBDIR += mac_rtprio
     SUBDIR += mackerel-agent
@@ -1032,6 +1037,18 @@
     SUBDIR += plasma6-polkit-kde-agent-1
     SUBDIR += plasma6-powerdevil
     SUBDIR += plasma6-systemsettings
+    SUBDIR += plasma6lts-discover
+    SUBDIR += plasma6lts-kde-cli-tools
+    SUBDIR += plasma6lts-kinfocenter
+    SUBDIR += plasma6lts-kmenuedit
+    SUBDIR += plasma6lts-knighttime
+    SUBDIR += plasma6lts-ksystemstats
+    SUBDIR += plasma6lts-libksysguard
+    SUBDIR += plasma6lts-plasma-disks
+    SUBDIR += plasma6lts-plasma-systemmonitor
+    SUBDIR += plasma6lts-polkit-kde-agent-1
+    SUBDIR += plasma6lts-powerdevil
+    SUBDIR += plasma6lts-systemsettings
     SUBDIR += plconfig
     SUBDIR += plocate
     SUBDIR += pmt
@@ -1167,6 +1184,7 @@
     SUBDIR += py-tldr
     SUBDIR += py-tmuxp
     SUBDIR += py-uptime
+    SUBDIR += py-zfsstat
     SUBDIR += qchroot
     SUBDIR += qdirstat
     SUBDIR += qflipper
@@ -1514,6 +1532,7 @@
     SUBDIR += tw_cli
     SUBDIR += twa-kmod
     SUBDIR += tzdialog
+    SUBDIR += tzupdate
     SUBDIR += u-boot-a13-olinuxino
     SUBDIR += u-boot-a64-olinuxino
     SUBDIR += u-boot-bananapi
@@ -1557,6 +1576,7 @@
     SUBDIR += u-boot-pine64-lts
     SUBDIR += u-boot-pinebook
     SUBDIR += u-boot-pinebookpro
+    SUBDIR += u-boot-pinetab
     SUBDIR += u-boot-qemu-arm
     SUBDIR += u-boot-qemu-arm64
     SUBDIR += u-boot-qemu-riscv64
@@ -1590,7 +1610,9 @@
     SUBDIR += ucspi-tcp
     SUBDIR += ucspi-unix
     SUBDIR += udfclient
+    SUBDIR += udiskie
     SUBDIR += ufetch
+    SUBDIR += ufs-utils
     SUBDIR += uhidd
     SUBDIR += uhubctl
     SUBDIR += uif2iso
@@ -1714,6 +1736,7 @@
     SUBDIR += yadm
     SUBDIR += yank
     SUBDIR += yazi
+    SUBDIR += ytop
     SUBDIR += z
     SUBDIR += zbackup
     SUBDIR += zeitgeist

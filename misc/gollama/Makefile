@@ -1,6 +1,6 @@
 PORTNAME=	gollama
 DISTVERSIONPREFIX=	v
-DISTVERSION=	2.0.6
+DISTVERSION=	2.0.7
 CATEGORIES=	misc # machine-learning
 
 MAINTAINER=	yuri@FreeBSD.org

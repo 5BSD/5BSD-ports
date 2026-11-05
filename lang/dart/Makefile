@@ -1,70 +1,137 @@
 PORTNAME=	dart
 DISTVERSION=	3.13.5
 CATEGORIES=	lang
-MASTER_SITES=	https://github.com/5BSD/5BSD-ports/releases/download/toolkit-20261004/
-DISTNAME=	5bsd-flutter-eb529d2bebb5
-DISTFILES=	${DISTNAME}${EXTRACT_SUFX} \
-		dart-bootstrap-${DISTVERSION}-5bsd-amd64${EXTRACT_SUFX}
-DIST_SUBDIR=	5bsd-toolkit
-USE_GITHUB=	nodefault
-GH_TUPLE=	flutter:devtools:12d595649f189f1896722623f72599077f476848:devtools
+MASTER_SITES=	https://github.com/pattems/dart-sdk-freebsd/releases/download/${DISTVERSION}/
+DISTFILES=	dart-sdk-${DISTVERSION}-src${EXTRACT_SUFX} \
+		dart-sdk-${BOOTSTRAP_VERSION}-bootstrap-freebsd15-${ARCH}${EXTRACT_SUFX}
+DIST_SUBDIR=	dart
 
-MAINTAINER=	kory@5bsd.org
-COMMENT=	Native 5BSD Dart language SDK
+MAINTAINER=	patrick@crandol.com
+COMMENT=	Dart programming language SDK
 WWW=		https://dart.dev/
 
-LICENSE=	BSD3CLAUSE
-LICENSE_FILE=	${WRKSRC}/engine/src/flutter/third_party/dart/LICENSE
+LICENSE=	APACHE20 BSD3CLAUSE ICU MIT ZLIB
+LICENSE_COMB=	multi
+LICENSE_NAME_ICU=	Unicode License V3
+LICENSE_FILE_APACHE20=	${WRKSRC}/third_party/perfetto/src/LICENSE
+LICENSE_FILE_BSD3CLAUSE=	${WRKSRC}/LICENSE
+LICENSE_FILE_ICU=	${WRKSRC}/third_party/icu/LICENSE
+LICENSE_FILE_MIT=	${WRKSRC}/third_party/pkg/tar/LICENSE
+LICENSE_FILE_ZLIB=	${WRKSRC}/third_party/zlib/LICENSE
+LICENSE_PERMS_ICU=	dist-mirror dist-sell pkg-mirror pkg-sell auto-accept
 
-ONLY_FOR_ARCHS=	amd64
-ONLY_FOR_ARCHS_REASON=	native bootstrap SDK is currently validated on amd64
+ONLY_FOR_ARCHS=	aarch64 amd64
+ONLY_FOR_ARCHS_REASON=	no bootstrap SDK for other architectures yet
 
-BUILD_DEPENDS=	gn:devel/gn \
-		${LOCALBASE}/libdata/pkgconfig/gtk+-3.0.pc:x11-toolkits/gtk30 \
-		${LOCALBASE}/libdata/pkgconfig/fontconfig.pc:x11-fonts/fontconfig
+BUILD_DEPENDS=	gn:devel/gn
 
-USES=		compiler:c++20-lang ninja:build pkgconfig python:build tar:xz
+USES=		ninja:build python:build tar:xz
 
-CONFIGURE_ENV+=	PUB_CACHE=${WRKDIR}/pub-cache
+MAKE_ENV=	HOME=${WRKDIR}
 
-_BOOTSTRAP=	${WRKDIR}/dart-bootstrap-${DISTVERSION}-5bsd-amd64
-_DART=		${WRKSRC}/engine/src/flutter/third_party/dart
-_ENGINE_OUT=	${WRKSRC}/engine/src/out/host_release_ports
-_SDK=		${_ENGINE_OUT}/dart-sdk
+# The build scripts ask git for version information and cope with git
+# failing, but not with it being absent.
+BINARY_ALIAS=	git=false python3=${PYTHON_CMD}
 
-# All sources and the native stage-zero SDK are fetched and checksummed by
-# ports. Configure/build never use gclient, CIPD, Git, or a Linux executable.
+# The source distfile is a gclient checkout of the release tag without the
+# prebuilt Linux toolchains. The bootstrap is a FreeBSD build of the Dart
+# SDK, used to run the Dart parts of the build. Both are made with the tools
+# in https://github.com/pattems/dart-sdk-freebsd: tools/make-dist.sh for
+# the source, and docs/bootstrap.md describes the bootstraps.
+BOOTSTRAP_VERSION=	3.13.5
+
+DART_ARCH=	${ARCH:S/aarch64/arm64/:S/amd64/x64/}
+
+WRKSRC=		${WRKDIR}/dart-sdk-${DISTVERSION}
+
+# Same arguments as tools/gn.py --mode release --arch x64 (or arm64), except
+# for those that need a git checkout (verify_sdk_hash, dart_version_git_info).
+# Perfetto is off by default on FreeBSD; the patch-third__party_perfetto_*
+# files backport Perfetto's FreeBSD support so it can be enabled.
+GN_ARGS=	target_os="freebsd" \
+		host_cpu="${DART_ARCH}" \
+		target_cpu="${DART_ARCH}" \
+		dart_target_arch="${DART_ARCH}" \
+		dart_use_compressed_pointers=false \
+		dart_use_crashpad=false \
+		dart_snapshot_kind="app-jit" \
+		is_debug=false \
+		is_release=true \
+		is_product=false \
+		dart_debug=false \
+		dart_runtime_mode="develop" \
+		is_clang=true \
+		dart_stripped_binary="exe.stripped/dart" \
+		dartvm_stripped_binary="exe.stripped/dartvm" \
+		dart_aotruntime_stripped_binary="exe.stripped/dartaotruntime_product" \
+		gen_snapshot_stripped_binary="exe.stripped/gen_snapshot_product" \
+		analyze_snapshot_binary="exe.stripped/analyze_snapshot" \
+		wasm_opt_stripped_binary="exe.stripped/wasm-opt" \
+		use_rbe=false \
+		verify_sdk_hash=false \
+		dart_version_git_info=false \
+		dart_support_perfetto=true
+
+.include <bsd.port.options.mk>
+
+.if ${OSVERSION} < 1405000
+IGNORE=		requires FreeBSD 14.5 or later
+.endif
+
+# Record the bootstrap for every architecture in distinfo.
+.if make(makesum)
+DISTFILES=	dart-sdk-${DISTVERSION}-src${EXTRACT_SUFX} \
+		${ONLY_FOR_ARCHS:@a@dart-sdk-${BOOTSTRAP_VERSION}-bootstrap-freebsd15-${a}${EXTRACT_SUFX}@}
+.endif
+
+SDKDIR=		lib/dart
+SDK_PROGRAMS=	bin/dart bin/dartaotruntime bin/dartvm bin/utils/gen_snapshot \
+		bin/utils/wasm-opt
+
+post-extract:
+	${MV} ${WRKDIR}/dart-sdk ${WRKSRC}/tools/sdks/dart-sdk
+
+# The patches are generated from a git series written to go upstream
+# (patches/${DISTVERSION} in https://github.com/pattems/dart-sdk-freebsd);
+# "series NNNN" in their headers refers to it. Files the series adds are in
+# ${FILESDIR}.
+post-patch:
+	${CP} ${FILESDIR}/largefile.h ${WRKSRC}/runtime/platform/
+	${CP} ${FILESDIR}/process_signal_map.h ${WRKSRC}/runtime/bin/
+
 do-configure:
-	${CP} ${FILESDIR}/dist-versions.json ${WRKSRC}/docs/5bsd/dist-versions.json
-	cd ${WRKSRC} && ${PYTHON_CMD} tools/5bsd/prepare_checkout.py
-	${MKDIR} ${_DART}/tools/sdks ${_DART}/third_party/devtools
-	(cd ${WRKSRC_devtools}/packages/devtools_shared && ${COPYTREE_SHARE} . ${_DART}/third_party/devtools/devtools_shared)
-	${LN} -sf ${_BOOTSTRAP} ${_DART}/tools/sdks/dart-sdk
-	(cd ${_BOOTSTRAP}/bin/resources/devtools && ${COPYTREE_SHARE} . ${_DART}/third_party/devtools/web)
-	cd ${WRKSRC} && ${SETENV} ${CONFIGURE_ENV} ${PYTHON_CMD} ${_DART}/tools/generate_package_config.py
-	cd ${WRKSRC} && ${SETENV} ${CONFIGURE_ENV} ${PYTHON_CMD} engine/src/flutter/tools/gn \
-		--runtime-mode=release --full-dart-sdk --no-prebuilt-dart-sdk \
-		--no-build-embedder-examples --no-enable-unittests \
-		--no-dart-version-git-info --target-dir=host_release_ports
+	${MKDIR} ${WRKSRC}/out/release
+	@${RM} ${WRKSRC}/out/release/args.gn
+.for a in ${GN_ARGS}
+	@${ECHO_CMD} '${a}' >> ${WRKSRC}/out/release/args.gn
+.endfor
+	cd ${WRKSRC} && ${SETENV} ${MAKE_ENV} gn gen out/release
 
 do-build:
-	${SETENV} ${MAKE_ENV} ${NINJA_CMD} -C ${_ENGINE_OUT} -j${MAKE_JOBS_NUMBER} \
-		flutter/third_party/dart/sdk:create_most_sdk
+	cd ${WRKSRC} && ${SETENV} ${MAKE_ENV} \
+		ninja -C out/release -j ${MAKE_JOBS_NUMBER} create_sdk
 
 do-install:
-	${MKDIR} ${STAGEDIR}${PREFIX}/lib/dart
-	${CP} -R ${_SDK}/. ${STAGEDIR}${PREFIX}/lib/dart/
-.for binary in dart dartvm dartaotruntime
-	${INSTALL_PROGRAM} ${_SDK}/bin/${binary} ${STAGEDIR}${PREFIX}/lib/dart/bin/${binary}
-	${LN} -s ../lib/dart/bin/${binary} ${STAGEDIR}${PREFIX}/bin/${binary}
-.endfor
-	${INSTALL_PROGRAM} ${_SDK}/bin/utils/gen_snapshot ${STAGEDIR}${PREFIX}/lib/dart/bin/utils/gen_snapshot
-	${FIND} ${STAGEDIR}${PREFIX}/lib/dart/bin/snapshots -name '*_aot.dart.snapshot' -exec ${STRIP_CMD} {} +
+	${MKDIR} ${STAGEDIR}${PREFIX}/${SDKDIR}
+	cd ${WRKSRC}/out/release/dart-sdk && \
+		${COPYTREE_SHARE} . ${STAGEDIR}${PREFIX}/${SDKDIR}
+	${FIND} ${STAGEDIR}${PREFIX}/${SDKDIR} -name '*.sym' -delete
+# The SDK already contains the stripped binaries (see *_stripped_binary),
+# but not stripped AOT snapshots, which are ELF shared objects with
+# DWARF. The VM doesn't need it for Dart stack traces.
+	${STRIP_CMD} ${STAGEDIR}${PREFIX}/${SDKDIR}/bin/snapshots/*_aot.dart.snapshot \
+		${STAGEDIR}${PREFIX}/${SDKDIR}/bin/snapshots/dart2bytecode.dart.snapshot \
+		${STAGEDIR}${PREFIX}/${SDKDIR}/bin/snapshots/dart2wasm_product.snapshot
+	cd ${STAGEDIR}${PREFIX}/${SDKDIR} && ${CHMOD} 555 ${SDK_PROGRAMS}
+	${RLN} ${STAGEDIR}${PREFIX}/${SDKDIR}/bin/dart ${STAGEDIR}${PREFIX}/bin/dart
+	${RLN} ${STAGEDIR}${PREFIX}/${SDKDIR}/bin/dartaotruntime \
+		${STAGEDIR}${PREFIX}/bin/dartaotruntime
 
+# 5BSD: the runtime, isolate, file and AOT checks of the earlier native port.
 do-test:
-	${_SDK}/bin/dart --version
-	${_SDK}/bin/dart ${FILESDIR}/smoke.dart
-	${_SDK}/bin/dart compile exe ${FILESDIR}/smoke.dart -o ${WRKDIR}/dart-smoke
+	${WRKSRC}/out/release/dart-sdk/bin/dart --version
+	${WRKSRC}/out/release/dart-sdk/bin/dart ${FILESDIR}/smoke.dart
+	${WRKSRC}/out/release/dart-sdk/bin/dart compile exe ${FILESDIR}/smoke.dart -o ${WRKDIR}/dart-smoke
 	${WRKDIR}/dart-smoke
 
 .include <bsd.port.mk>

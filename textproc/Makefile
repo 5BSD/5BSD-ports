@@ -185,6 +185,7 @@
     SUBDIR += el-hyphen
     SUBDIR += elasticsearch-plugin-head
     SUBDIR += elasticsearch8
+    SUBDIR += elasticsearch94
     SUBDIR += en-aspell
     SUBDIR += en-hunspell
     SUBDIR += en-mythes
@@ -312,6 +313,7 @@
     SUBDIR += ibus-m17n
     SUBDIR += ibus-table
     SUBDIR += ibus-typing-booster
+    SUBDIR += ibus-uim
     SUBDIR += ibus-uniemoji
     SUBDIR += icdiff
     SUBDIR += id-aspell
@@ -406,6 +408,7 @@
     SUBDIR += libfolia
     SUBDIR += libfyaml
     SUBDIR += libgepub
+    SUBDIR += libgrapheme
     SUBDIR += libinfinity
     SUBDIR += libixion
     SUBDIR += libjcat
@@ -474,7 +477,6 @@
     SUBDIR += lua-icu-utils
     SUBDIR += lua-luaexpat
     SUBDIR += lua-lyaml
-    SUBDIR += lucene
     SUBDIR += lucene9
     SUBDIR += luceneplusplus
     SUBDIR += lv-aspell
@@ -489,6 +491,7 @@
     SUBDIR += markdownfmt
     SUBDIR += markdownpart
     SUBDIR += markless
+    SUBDIR += markterm
     SUBDIR += mathml-xsd
     SUBDIR += md2roff
     SUBDIR += md4c
@@ -1243,6 +1246,7 @@
     SUBDIR += pa-aspell
     SUBDIR += pageedit
     SUBDIR += par
+    SUBDIR += patdiff
     SUBDIR += pdf-form-filler-mcp
     SUBDIR += pdf-reader-mcp
     SUBDIR += pdfgrep
@@ -1376,6 +1380,7 @@
     SUBDIR += py-cjkwrap
     SUBDIR += py-cloud_sptheme
     SUBDIR += py-cmarkgfm
+    SUBDIR += py-codespell
     SUBDIR += py-collective.checkdocs
     SUBDIR += py-comrak
     SUBDIR += py-conllu
@@ -1483,7 +1488,6 @@
     SUBDIR += py-guess-language
     SUBDIR += py-hashids
     SUBDIR += py-hexdump
-    SUBDIR += py-hieroglyph
     SUBDIR += py-hjson
     SUBDIR += py-hotdoc
     SUBDIR += py-html-text
@@ -1585,6 +1589,7 @@
     SUBDIR += py-ntc-templates
     SUBDIR += py-numpydoc
     SUBDIR += py-ocrmypdf
+    SUBDIR += py-odfdo
     SUBDIR += py-openpyxl
     SUBDIR += py-opensearch-py
     SUBDIR += py-openstackdocstheme
@@ -1644,7 +1649,6 @@
     SUBDIR += py-pyls-spyder
     SUBDIR += py-pymdown-extensions
     SUBDIR += py-pymupdf4llm
-    SUBDIR += py-pypa-docs-theme
     SUBDIR += py-pypandoc
     SUBDIR += py-pyphen
     SUBDIR += py-pyrdfa3
@@ -1848,6 +1852,7 @@
     SUBDIR += py-youseedee
     SUBDIR += py-yte
     SUBDIR += py-zensical
+    SUBDIR += py-zensical-ui
     SUBDIR += py-zope.i18nmessageid
     SUBDIR += py-zpt
     SUBDIR += py-zxing-cpp
@@ -1880,7 +1885,6 @@
     SUBDIR += redland-bindings
     SUBDIR += refdb
     SUBDIR += reflex
-    SUBDIR += regex2dfa
     SUBDIR += regexplain
     SUBDIR += replaceit
     SUBDIR += rfcdiff
@@ -2274,6 +2278,7 @@
     SUBDIR += uim-m17nlib
     SUBDIR += uim-qt5
     SUBDIR += uim-qt6
+    SUBDIR += uim-wayland
     SUBDIR += uml2svg
     SUBDIR += uncle
     SUBDIR += uncrustify
@@ -2291,6 +2296,7 @@
     SUBDIR += vbindiff
     SUBDIR += ve-hunspell
     SUBDIR += vgrep
+    SUBDIR += vss-text
     SUBDIR += wa-aspell
     SUBDIR += wa-hunspell
     SUBDIR += wdiff
@@ -2336,7 +2342,6 @@
     SUBDIR += xmlstarlet
     SUBDIR += xmlto
     SUBDIR += xmlwrapp
-    SUBDIR += xom
     SUBDIR += xorg-sgml-doctools
     SUBDIR += xql
     SUBDIR += xray

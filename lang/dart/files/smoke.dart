@@ -2,8 +2,8 @@ import 'dart:io';
 import 'dart:isolate';
 
 Future<void> main() async {
-  if (Platform.operatingSystem != '5bsd') {
-    throw StateError('Expected native 5BSD, got ${Platform.operatingSystem}');
+  if (Platform.operatingSystem != 'linux') {
+    throw StateError('Expected the Linux identity of the FreeBSD port, got ${Platform.operatingSystem}');
   }
   final answer = await Isolate.run(() => 6 * 7);
   if (answer != 42) throw StateError('Isolate failed');
@@ -15,5 +15,5 @@ Future<void> main() async {
   } finally {
     directory.deleteSync(recursive: true);
   }
-  print('5BSD Dart native runtime smoke test passed');
+  print('Dart native runtime smoke test passed');
 }

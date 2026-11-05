@@ -25,3 +25,5 @@ net/miniupnpd/pkg-message	no separate NAT section or rdr-anchor
 devel/freebsd-sysroot				# FreeBSD cross-build sysroot
 security/vuxml					# historical FreeBSD advisories
 misc/freebsd-doc-*				# FreeBSD documentation sets
+net/containernetworking-plugins/pkg-message	OpenBSD PF has no rdr-anchor or nat-anchor
+net/containernetworking-plugins/files/patch-plugins_freebsd_meta_portmap_portmap.go	"rdr pass %s proto
