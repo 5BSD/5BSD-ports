@@ -1,11 +1,12 @@
 PORTNAME=	flutter-engine
 DISTVERSION=	0.1.0
+PORTREVISION=	1
 _DART_VERSION=	3.13.5
 CATEGORIES=	x11-toolkits
-MASTER_SITES=	https://github.com/5BSD/5BSD-ports/releases/download/toolkit-20261004/
-DISTNAME=	5bsd-flutter-eb529d2bebb5
+MASTER_SITES=	https://github.com/5BSD/5BSD-ports/releases/download/toolkit-20261105/
+DISTNAME=	5bsd-flutter-84c7cb7b1520
 DISTFILES=	${DISTNAME}${EXTRACT_SUFX} \
-		dart-bootstrap-${_DART_VERSION}-5bsd-amd64${EXTRACT_SUFX}
+		dart-bootstrap-${_DART_VERSION}-5bsd-amd64-20261105${EXTRACT_SUFX}
 DIST_SUBDIR=	5bsd-toolkit
 USE_GITHUB=	nodefault
 GH_TUPLE=	flutter:devtools:12d595649f189f1896722623f72599077f476848:devtools

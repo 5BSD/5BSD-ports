@@ -1,10 +1,11 @@
 PORTNAME=	5bsd-imager
 DISTVERSION=	0.2.0
+PORTREVISION=	1
 CATEGORIES=	sysutils
-MASTER_SITES=	https://github.com/5BSD/5BSD-ports/releases/download/toolkit-20261004/:toolkit \
+MASTER_SITES=	https://github.com/5BSD/5BSD-ports/releases/download/toolkit-20261105/:toolkit \
 		https://pub.dev/api/archives/:pub \
 		https://storage.googleapis.com/flutter_infra_release/flutter/fonts/3012db47f3130e62f7cc0beabff968a33cbec8d8/:fonts
-DISTNAME=	5bsd-flutter-eb529d2bebb5
+DISTNAME=	5bsd-flutter-84c7cb7b1520
 DISTFILES=	${DISTNAME}.tar.xz:toolkit fonts.zip:fonts
 DIST_SUBDIR=	5bsd-toolkit
 EXTRACT_ONLY=	${DISTNAME}.tar.xz

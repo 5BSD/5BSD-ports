@@ -1,11 +1,11 @@
 PORTNAME=	5bsd-instruments
 DISTVERSION=	0.3.9
-PORTREVISION=	2
+PORTREVISION=	3
 CATEGORIES=	sysutils
-MASTER_SITES=	https://github.com/5BSD/5BSD-ports/releases/download/toolkit-20261004/:toolkit \
+MASTER_SITES=	https://github.com/5BSD/5BSD-ports/releases/download/toolkit-20261105/:toolkit \
 		https://pub.dev/api/archives/:pub \
 		https://storage.googleapis.com/flutter_infra_release/flutter/fonts/3012db47f3130e62f7cc0beabff968a33cbec8d8/:fonts
-DISTNAME=	5bsd-flutter-eb529d2bebb5
+DISTNAME=	5bsd-flutter-84c7cb7b1520
 DISTFILES=	${DISTNAME}.tar.xz:toolkit \
 		5bsd-instruments-system-sources-20261005.tar.xz:toolkit \
 		fonts.zip:fonts

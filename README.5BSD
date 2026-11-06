@@ -46,33 +46,36 @@ change is needed, and carry only that change. List the current delta with:
   git fetch freebsd
   git diff --name-only freebsd/main HEAD | awk -F/ 'NF>2{print $1"/"$2}' | sort -u
 
-lang/dart is FreeBSD's origin since this sync; 5BSD carries one patch and a
-do-test target (see Native toolkit). Its upstream maintainer stands.
+lang/dart is FreeBSD's origin since this sync. 5BSD carries the FFI and
+--target-os patches, its own amd64 bootstrap and a do-test target (see Native
+toolkit). Its upstream maintainer stands.
 
-Flutter sources and bootstrap, as known on 2026-11-05:
+Flutter sources and bootstrap, regenerated 2026-11-05:
 
-  Archives    5bsd-flutter-eb529d2bebb5.tar.xz (507240640 bytes, SHA256 in
-              x11-toolkits/flutter-engine/distinfo) and
-              dart-bootstrap-3.13.5-5bsd-amd64.tar.xz (162947532 bytes). Not
-              published: toolkit-20261004 returned 404 on 2026-10-08 and
-              2026-11-05, and no git remote for the tree was found.
-  Revisions   engine eb529d2bebb5, Dart 04bcd1036cdc (the 3.13.5 tag), Skia
-              8df24be66531, devtools 12d595649f18. The 5bsd-flutter tree also
-              had commits 760db656 (exporter, tests) and 14999c5e (offline
-              package builds).
-  Last seen   ~/5bsd-flutter, ~/5bsd-flutter-repro and ~/5bsd-flutter-work,
-              which held ports-release-inputs/ and
-              native-dart-bootstrap-3.13.5-stage2, on 2026-10-17. Not on this
-              host by 2026-11-03. Their removal is not recorded. The owner
-              expects a copy to exist; locate it before regenerating anything.
-  Still here  Built runtime only, no source:
-              /Capabilities/System/org.5bsd.Instruments@*.cap/Units/gui.unit/
-              bin/lib/libflutter_5bsd_gtk.so and libapp.so.
+  Lost        ~/5bsd-flutter, -repro and -work, with the original archives
+              5bsd-flutter-eb529d2bebb5.tar.xz and
+              dart-bootstrap-3.13.5-5bsd-amd64.tar.xz. Last seen 2026-10-17,
+              gone by 2026-11-03, removal not recorded, no git remote. The
+              owner confirmed they are gone. Do not reuse those filenames.
+  Source      5bsd-flutter-84c7cb7b1520.tar.xz (507235688 bytes; the original
+              was 507240640). Flutter 5fc346839b5d (3.47 candidate 0), every
+              DEPS pin refetched, then the edits replayed from the session
+              logs up to the commit the original archive was cut from, and
+              dependency patches and source-lock.json regenerated with the
+              tree's own tools. Commit hashes differ from the original tree.
+  System      5bsd-instruments-system-sources-20261005.tar.xz, reproduced
+  sources     byte for byte from /usr/src 67393212073; distinfo unchanged.
+  Bootstrap   dart-bootstrap-3.13.5-5bsd-amd64-20261105.tar.xz: stage 2 below.
+  Verified    All Instruments and engine ports patches apply to that commit
+              with no fuzz and fail on its successor, as expected. The four
+              dependency pins match. libapp.so of the rebuild and of installed
+              Instruments 0.3.5 share all but a few dozen of 16000 strings;
+              the differences found are binary noise and the later PF reader
+              change. The replay is a reconstruction, not the original bytes.
 
-Until the archives are recovered or the snapshot is regenerated,
-flutter-engine, 5bsd-instruments and 5bsd-imager cannot be fetched or built.
-Instruments' build source and the engine patches live in that tree. Publish
-the exact checksummed archives once found, so this is not a single copy again.
+Publish these archives to the toolkit-20261105 release; until then fetch fails
+and they exist only under /usr/obj. Keep a second copy of the tree: the
+replayed history is a git bundle at /usr/obj/5bsd-toolkit-work/5bsd-flutter.bundle.
 Existing validation notes below describe prior work, not tests rerun during
 this inventory audit. No additional Imager validation is claimed here.
 
@@ -233,39 +236,53 @@ release archives before advertising successful public fetch/install.
 Native toolkit
 --------------
 lang/dart is FreeBSD's port (2026-11-05): the Dart 3.13.5 release tree with
-reviewable patches in files/, built on amd64 and aarch64 from a third-party
-FreeBSD bootstrap SDK (github.com/pattems/dart-sdk-freebsd). It replaces the
-earlier origin built from the unpublished 5bsd-flutter snapshot. Both are the
-same Dart commit, 04bcd1036cdc, so kernel output of this frontend matches the
-snapshot's flutter-engine; an unverified SDK hash is accepted by the VM.
+reviewable patches in files/. It replaces the earlier origin built from the
+5bsd-flutter snapshot. Both are Dart commit 04bcd1036cdc. Every file of
+FreeBSD's source distfile in runtime, sdk, pkg, tools, build and utils matches
+that commit in Google's repository; extra files are generated tests and
+metadata.
 
 The FreeBSD port builds Dart as a Linux variant: Platform.operatingSystem is
 "linux" and Platform.isLinux is true in standalone programs, unlike the earlier
-"5bsd". The flutter-engine runtime still reports "5bsd". files/smoke.dart
-records this. The 5BSD delta is patch-pkg_vm_lib_target__os.dart, which adds
---target-os=5bsd for 5bsd-imager and 5bsd-instruments, plus the do-test target.
+"5bsd". The flutter-engine runtime reports "5bsd". files/smoke.dart records
+this. The 5BSD delta is: patch-pkg_vm_lib_target__os.dart for --target-os=5bsd;
+the pkg/vm and sdk FFI patches declaring the 5BSD ABIs, appended so existing
+indices do not move, without which frontend_server crashes on the engine
+platform; the amd64 bootstrap; and the do-test target.
 
 Bootstrap: Dart is written in Dart, so every build needs a prebuilt SDK, as
-lang/go and lang/rust do. Google publishes none for FreeBSD, so the port
-fetches a build from that project. It runs during the build and is not
-installed. The chain began with a Linux build and each later one was built by
-its predecessor; DISTFILES and distinfo pin it, which proves the file is the
-expected one, not how it was produced. 5BSD had its own Linux-seeded chain
-(dart-bootstrap-3.13.5-5bsd-amd64, native-dart-bootstrap-3.13.5-stage2), not
-located. To stop depending on the third-party file, recover that bootstrap
-or rebuild the SDK with itself and publish the result. A new Dart minor
-release needs a new bootstrap, not the previous release (docs/bootstrap.md
-in that project).
+lang/go and lang/rust do. Google publishes none for FreeBSD. FreeBSD's port
+uses github.com/pattems/dart-sdk-freebsd, which aarch64 still does here. amd64
+uses a 5BSD build, made on 2026-11-05 without running a prebuilt SDK during
+that work:
 
-Validation: source inspection and fetch, checksum and patch steps only. This
-SDK has not been built to completion on 5BSD; a 2026-11-03 attempt from the
-same recipe left a partial tree and no dart-sdk directory. The earlier origin's
-build, VM install and runtime results do not apply to it. Compatibility with
-the Flutter applications is untested.
+  Seed     dartvm and platform kernel compiled on this host on 2026-11-03.
+           That build ran the pattems bootstrap, so its kernel files came from
+           it. The C++ VM was compiled here from the verified source.
+  Stage 1  The full SDK, with a small bin/dart wrapper around that VM running
+           the Dart tools from source. No prebuilt AOT snapshot ran.
+  Stage 2  The SDK rebuilt with stage 1. 1041 of 1044 files are identical to
+           stage 1, including dart, dartvm, gen_snapshot, vm_platform.dill and
+           all AOT snapshots; the rest are app-JIT snapshots.
+
+That fixed point shows the build reproduces itself. It does not exclude a
+compromise carried through the seed. Rebuilding from Google's official Linux
+SDK under Linuxulator and comparing stage 2 would test that; it was not run.
+A new Dart minor release needs a new bootstrap: rebuild from the previous one.
+
+Validation on 2026-11-05, as a non-root build with private gn and ninja and
+staged dependencies: lang/dart, flutter-engine, 5bsd-instruments and
+5bsd-imager stage and pass check-plist; lang/dart and 5bsd-instruments pass
+make test. Dart's own test suites were not run. Packages were not installed.
+Instruments from the build directory, under X11 on the desktop host, passed
+--self-test (17 checks), --self-test --instruments-test and --self-test
+--pf-test, and reported "Dart 3.13.5 · 5bsd". Imager was built, not launched.
+Live DTrace capture, the Capability bundle install path and upgrades of
+installed bundles were not rerun.
 
 Release preparation is incomplete: the toolkit source/bootstrap archives for
-flutter-engine and its applications are not published, and see the inventory
-above for their absence on the build host. Public fetch will not work until
+flutter-engine and its applications are not published; see the inventory
+above for what was regenerated. Public fetch will not work until
 those exact checksummed archives are uploaded. Do not publish a different
 archive under the same filename. The source exporter records the patched
 working-tree provenance; this is a development snapshot, not an assertion of
