@@ -1,9 +1,11 @@
 PORTNAME=	dart
 DISTVERSION=	3.13.5
+PORTREVISION=	1
 CATEGORIES=	lang
-MASTER_SITES=	https://github.com/pattems/dart-sdk-freebsd/releases/download/${DISTVERSION}/
+MASTER_SITES=	https://github.com/pattems/dart-sdk-freebsd/releases/download/${DISTVERSION}/ \
+		https://github.com/5BSD/5BSD-ports/releases/download/toolkit-20261105/:toolkit
 DISTFILES=	dart-sdk-${DISTVERSION}-src${EXTRACT_SUFX} \
-		dart-sdk-${BOOTSTRAP_VERSION}-bootstrap-freebsd15-${ARCH}${EXTRACT_SUFX}
+		${BOOTSTRAP_DISTFILE}
 DIST_SUBDIR=	dart
 
 MAINTAINER=	patrick@crandol.com
@@ -39,6 +41,13 @@ BINARY_ALIAS=	git=false python3=${PYTHON_CMD}
 # in https://github.com/pattems/dart-sdk-freebsd: tools/make-dist.sh for
 # the source, and docs/bootstrap.md describes the bootstraps.
 BOOTSTRAP_VERSION=	3.13.5
+# 5BSD: amd64 uses a native SDK built on 5BSD from this source; see README.5BSD.
+BOOTSTRAP_DISTFILE_amd64=	dart-bootstrap-${BOOTSTRAP_VERSION}-5bsd-amd64-20261105${EXTRACT_SUFX}:toolkit
+BOOTSTRAP_DIR_amd64=		dart-bootstrap-${BOOTSTRAP_VERSION}-5bsd-amd64
+BOOTSTRAP_DISTFILE_aarch64=	dart-sdk-${BOOTSTRAP_VERSION}-bootstrap-freebsd15-aarch64${EXTRACT_SUFX}
+BOOTSTRAP_DIR_aarch64=		dart-sdk
+BOOTSTRAP_DISTFILE=	${BOOTSTRAP_DISTFILE_${ARCH}}
+BOOTSTRAP_DIR=		${BOOTSTRAP_DIR_${ARCH}}
 
 DART_ARCH=	${ARCH:S/aarch64/arm64/:S/amd64/x64/}
 
@@ -81,7 +90,7 @@ IGNORE=		requires FreeBSD 14.5 or later
 # Record the bootstrap for every architecture in distinfo.
 .if make(makesum)
 DISTFILES=	dart-sdk-${DISTVERSION}-src${EXTRACT_SUFX} \
-		${ONLY_FOR_ARCHS:@a@dart-sdk-${BOOTSTRAP_VERSION}-bootstrap-freebsd15-${a}${EXTRACT_SUFX}@}
+		${ONLY_FOR_ARCHS:@a@${BOOTSTRAP_DISTFILE_${a}}@}
 .endif
 
 SDKDIR=		lib/dart
@@ -89,7 +98,7 @@ SDK_PROGRAMS=	bin/dart bin/dartaotruntime bin/dartvm bin/utils/gen_snapshot \
 		bin/utils/wasm-opt
 
 post-extract:
-	${MV} ${WRKDIR}/dart-sdk ${WRKSRC}/tools/sdks/dart-sdk
+	${MV} ${WRKDIR}/${BOOTSTRAP_DIR} ${WRKSRC}/tools/sdks/dart-sdk
 
 # The patches are generated from a git series written to go upstream
 # (patches/${DISTVERSION} in https://github.com/pattems/dart-sdk-freebsd);
