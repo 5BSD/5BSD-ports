@@ -265,9 +265,11 @@ that work:
            stage 1, including dart, dartvm, gen_snapshot, vm_platform.dill and
            all AOT snapshots; the rest are app-JIT snapshots.
 
-That fixed point shows the build reproduces itself. It does not exclude a
-compromise carried through the seed. Rebuilding from Google's official Linux
-SDK under Linuxulator and comparing stage 2 would test that; it was not run.
+Diverse-seed check, 2026-11-06: the same source and path were built from
+Google's official Linux SDK 3.13.5 (sha256 ea864bc64df3, published checksum
+verified) running under Linuxulator. The result matches stage 2 in the same
+1041 of 1044 files; only the three app-JIT snapshots differ. Two independent
+seeds giving the same SDK leaves no sign of anything carried through the seed.
 A new Dart minor release needs a new bootstrap: rebuild from the previous one.
 
 Validation on 2026-11-05, as a non-root build with private gn and ninja and
